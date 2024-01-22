@@ -19,7 +19,8 @@ pub mod first_test {
         let client = Client::new();
 
         let res = client
-            .post("http://localhost:8081/v2/check?text=get%20this%20thig&language=en-US")
+            .post("http://localhost:8081/v2/check?language=en-US")
+            .form(&[("text", "get this thig")])
             .send()
             .await;
 
