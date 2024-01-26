@@ -11,15 +11,6 @@ pub enum ProgrammingLanguageType {
     Rust,
 }
 
-/* #[derive(Debug)]
-pub struct ProgrammingLanguage<'ext, 'cmt, 'cmt_st, 'cmt_end> {
-    extension: &'ext str,
-    comment_delimiter: &'cmt str,
-    block_comment_delimiter_start: &'cmt_st str,
-    block_comment_delimiter_end: &'cmt_end str,
-    lang_type: ProgrammingLanguageType,
-} */
-
 // TODO: Find better name
 #[derive(Debug)]
 pub struct ProgrammingLanguage<'lang> {
@@ -30,7 +21,6 @@ pub struct ProgrammingLanguage<'lang> {
     lang_type: ProgrammingLanguageType,
 }
 
-//impl<'ext, 'cmt, 'cmt_st, 'cmt_end> ProgrammingLanguage<'ext, 'cmt, 'cmt_st, 'cmt_end> {
 impl<'lang> ProgrammingLanguage<'lang> {
     pub fn init() -> Vec<ProgrammingLanguage<'lang>> {
         let mut programming_languages: Vec<ProgrammingLanguage> = Vec::with_capacity(2);
@@ -59,14 +49,14 @@ impl<'lang> ProgrammingLanguage<'lang> {
 #[derive(Debug)]
 pub struct ProgrammingFile<'fp> {
     file_path: &'fp str,
-    line: Vec<ProgrammingLine>,
+    pub lines: Vec<ProgrammingLine>,
 }
 
 impl<'fp> ProgrammingFile<'fp> {
     pub fn new(file_path: &'fp str) -> Self {
         return ProgrammingFile {
             file_path,
-            line: Vec::new(),
+            lines: Vec::new(),
         };
     }
 
@@ -103,12 +93,19 @@ impl<'fp> ProgrammingFile<'fp> {
             if is_block_comment {
                 is_block_comment = !line.contains(lang.block_comment_delimiter_end);
                 programming_line.set_commented();
+                self.lines.push(programming_line);
                 continue;
             }
 
             programming_line.set_commented_and_code_line(&lang);
 
-            self.line.push(programming_line);
+            self.lines.push(programming_line);
+        }
+    }
+
+    pub fn debug_p(&self) {
+        for line in &self.lines {
+            info!("{:?}", line.debug_ptrs());
         }
     }
 }
@@ -141,12 +138,25 @@ impl ProgrammingLine {
     }
 
     pub fn set_commented_and_code_line(&mut self, lang: &ProgrammingLanguage) {
+        if self.original_line.is_empty() {
+            return;
+        }
+
         let line_comment_option = self.original_line.split_once(lang.comment_delimiter);
 
-        if let Some((left_of_line, right_of_line)) = line_comment_option {
-            // TODO: The code line need to be transformed
-            self.code_line = Some(left_of_line);
-            self.commented_line = Some(right_of_line);
+        match line_comment_option {
+            Some((left_of_line, right_of_line)) => {
+                self.commented_line = Some(right_of_line);
+
+                if left_of_line.trim().is_empty() {
+                    return;
+                }
+                // TODO: The code line need to be transformed
+                self.code_line = Some(left_of_line);
+            }
+            None => {
+                self.code_line = Some(self.original_line.as_str());
+            }
         }
     }
 

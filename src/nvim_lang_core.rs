@@ -1,7 +1,7 @@
-use log::warn;
+use log::{info, warn};
 use reqwest::Client;
 
-use crate::programming_lang::ProgrammingLanguage;
+use crate::programming_lang::{ProgrammingFile, ProgrammingLanguage};
 
 #[derive(Debug)]
 pub struct NvimLangCore<'lang> {
@@ -36,7 +36,26 @@ impl<'lang> NvimLangCore<'lang> {
     pub fn process_file(&self, file_path: String) {
         if file_path.is_empty() {
             warn!("No file path was provided");
+            return;
         }
+
+        let lang = match self.get_file_type(&file_path) {
+            Some(lang) => lang,
+            None => {
+                warn!(
+                    "nvim-lang-core does not support this file type: {}",
+                    file_path
+                );
+                return;
+            }
+        };
+
+        let mut prog_file = ProgrammingFile::new(&file_path);
+
+        prog_file.pros(lang);
+
+        info!("{:#?}", prog_file);
+        prog_file.debug_p();
     }
 
     fn get_file_type(&self, file_path: &String) -> Option<&ProgrammingLanguage> {

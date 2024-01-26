@@ -3,7 +3,7 @@ pub mod first_test {
     use std::env;
 
     use log::{error, info};
-    use nvim_lang_core::{common::logger::Logger, modules::LangTool};
+    use nvim_lang_core::{common::logger::Logger, modules::LangTool, nvim_lang_core::NvimLangCore};
     use reqwest::Client;
 
     //curl -X POST --header 'Content-Type: application/x-www-form-urlencoded'
@@ -39,5 +39,15 @@ pub mod first_test {
         }
 
         log::logger().flush();
+    }
+
+    #[tokio::test]
+    async fn sec() {
+        let core = NvimLangCore::new(None, None);
+
+        core.process_file(
+            "/home/brent/Documents/projects/nvim-lang-core/tests/file_test_cases/person.rs"
+                .to_owned(),
+        );
     }
 }
