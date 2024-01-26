@@ -1,7 +1,6 @@
 use std::{
     fs::File,
     io::{BufRead, BufReader},
-    marker::PhantomData,
 };
 
 use log::{error, info, warn};
@@ -12,18 +11,28 @@ pub enum ProgrammingLanguageType {
     Rust,
 }
 
-// TODO: Find better name
-#[derive(Debug)]
+/* #[derive(Debug)]
 pub struct ProgrammingLanguage<'ext, 'cmt, 'cmt_st, 'cmt_end> {
     extension: &'ext str,
     comment_delimiter: &'cmt str,
     block_comment_delimiter_start: &'cmt_st str,
     block_comment_delimiter_end: &'cmt_end str,
     lang_type: ProgrammingLanguageType,
+} */
+
+// TODO: Find better name
+#[derive(Debug)]
+pub struct ProgrammingLanguage<'lang> {
+    pub extension: &'lang str,
+    comment_delimiter: &'lang str,
+    block_comment_delimiter_start: &'lang str,
+    block_comment_delimiter_end: &'lang str,
+    lang_type: ProgrammingLanguageType,
 }
 
-impl<'ext, 'cmt, 'cmt_st, 'cmt_end> ProgrammingLanguage<'ext, 'cmt, 'cmt_st, 'cmt_end> {
-    pub fn init() -> Vec<ProgrammingLanguage<'ext, 'cmt, 'cmt_st, 'cmt_end>> {
+//impl<'ext, 'cmt, 'cmt_st, 'cmt_end> ProgrammingLanguage<'ext, 'cmt, 'cmt_st, 'cmt_end> {
+impl<'lang> ProgrammingLanguage<'lang> {
+    pub fn init() -> Vec<ProgrammingLanguage<'lang>> {
         let mut programming_languages: Vec<ProgrammingLanguage> = Vec::with_capacity(2);
 
         programming_languages.push(ProgrammingLanguage {
@@ -43,24 +52,6 @@ impl<'ext, 'cmt, 'cmt_st, 'cmt_end> ProgrammingLanguage<'ext, 'cmt, 'cmt_st, 'cm
         });
 
         return programming_languages;
-    }
-}
-
-// TODO: Find better name
-#[derive(Debug)]
-pub struct ProgrammingLine {
-    original_line: String,
-    commented_line: Option<String>,
-    code_line: Option<String>,
-}
-
-impl ProgrammingLine {
-    pub fn new(original_line: String) -> Self {
-        return ProgrammingLine {
-            original_line,
-            commented_line: None,
-            code_line: None,
-        };
     }
 }
 
@@ -102,26 +93,75 @@ impl<'fp> ProgrammingFile<'fp> {
                 }
             };
 
-            let mut programming_line = ProgrammingLine::new(line);
+            let mut programming_line = ProgrammingLine::new(index + 1, line);
             let line = &programming_line.original_line;
 
             if !is_block_comment {
                 is_block_comment = line.contains(lang.block_comment_delimiter_start);
-            } else {
+            }
+
+            if is_block_comment {
                 is_block_comment = !line.contains(lang.block_comment_delimiter_end);
-                info!("Need to handler bloc comments");
+                programming_line.set_commented();
                 continue;
             }
 
-            let line_comment_option = line.split_once(lang.comment_delimiter);
-
-            if let Some((left_of_line, right_of_line)) = line_comment_option {
-                // TODO: The code line need to be transformed
-                programming_line.code_line = Some(left_of_line.to_owned());
-                programming_line.commented_line = Some(right_of_line.to_owned());
-            }
+            programming_line.set_commented_and_code_line(&lang);
 
             self.line.push(programming_line);
         }
+    }
+}
+
+// TODO: Find better name
+#[derive(Debug)]
+pub struct ProgrammingLine {
+    pub line_number: usize,
+    pub original_line: String,
+    pub commented_line: Option<*const str>,
+    pub code_line: Option<*const str>,
+}
+
+impl ProgrammingLine {
+    pub fn new(line_number: usize, original_line: String) -> Self {
+        return ProgrammingLine {
+            line_number,
+            original_line,
+            commented_line: None,
+            code_line: None,
+        };
+    }
+
+    pub fn set_commented(&mut self) {
+        if self.original_line.is_empty() {
+            return;
+        }
+
+        self.commented_line = Some(self.original_line.as_str());
+    }
+
+    pub fn set_commented_and_code_line(&mut self, lang: &ProgrammingLanguage) {
+        let line_comment_option = self.original_line.split_once(lang.comment_delimiter);
+
+        if let Some((left_of_line, right_of_line)) = line_comment_option {
+            // TODO: The code line need to be transformed
+            self.code_line = Some(left_of_line);
+            self.commented_line = Some(right_of_line);
+        }
+    }
+
+    //TODO: Find better method name
+    pub fn debug_ptrs(&self) -> (Option<&str>, Option<&str>) {
+        let code_line = match self.code_line {
+            Some(code_ln) => Some(unsafe { &*code_ln }),
+            None => None,
+        };
+
+        let commented_line = match self.commented_line {
+            Some(cmt_ln) => Some(unsafe { &*cmt_ln }),
+            None => None,
+        };
+
+        return (code_line, commented_line);
     }
 }
