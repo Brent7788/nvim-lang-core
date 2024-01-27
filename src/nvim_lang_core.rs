@@ -50,9 +50,9 @@ impl<'lang> NvimLangCore<'lang> {
             }
         };
 
-        let mut prog_file = ProgrammingFile::new(&file_path);
+        let mut prog_file = ProgrammingFile::new(&file_path, &lang);
 
-        prog_file.pros(lang);
+        prog_file.process_lines();
 
         info!("{:#?}", prog_file);
         prog_file.debug_p();
