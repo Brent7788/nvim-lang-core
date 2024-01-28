@@ -1,5 +1,7 @@
 use std::{
+    collections::hash_map::DefaultHasher,
     fs::File,
+    hash::{Hash, Hasher},
     io::{BufRead, BufReader},
 };
 
@@ -85,6 +87,8 @@ impl<'pf> ProgrammingFile<'pf> {
 
         let file_buf_reader = BufReader::new(file);
 
+        let mut hasher = DefaultHasher::new();
+
         for (index, line_res) in file_buf_reader.lines().enumerate() {
             let line = match line_res {
                 Ok(line) => line,
@@ -99,6 +103,7 @@ impl<'pf> ProgrammingFile<'pf> {
             programming_line.set_if_comment(self.lang);
             programming_line.set_if_block_comment();
             programming_line.set_if_code();
+            programming_line.set_hash(&mut hasher);
 
             self.lines.push(programming_line);
         }
@@ -114,6 +119,7 @@ impl<'pf> ProgrammingFile<'pf> {
 // TODO: Find better name
 #[derive(Debug)]
 pub struct ProgrammingLine {
+    pub hash: u64,
     pub line_number: usize,
     pub original_line: String,
     pub commented_line: Option<*const str>,
@@ -124,6 +130,7 @@ pub struct ProgrammingLine {
 impl ProgrammingLine {
     pub fn new(line_number: usize, original_line: String) -> Self {
         return ProgrammingLine {
+            hash: 0,
             line_number,
             original_line,
             commented_line: None,
@@ -217,6 +224,17 @@ impl ProgrammingLine {
 
         // TODO: The code line need to be transformed
         self.code_line = Some(self.original_line.as_str());
+    }
+
+    fn set_hash(&mut self, hasher: &mut DefaultHasher) {
+        if matches!(self.prog_type, ProgrammingLineType::NewLine)
+            || matches!(self.prog_type, ProgrammingLineType::Unknown)
+        {
+            return;
+        }
+
+        self.original_line.hash(hasher);
+        self.hash = hasher.finish();
     }
 
     //TODO: Find better method name
