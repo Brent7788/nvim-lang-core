@@ -8,7 +8,7 @@ pub struct NvimLangCore<'lang> {
     languagetool_url: String,
     language: String,
     client: Client,
-    programming_languages: Vec<ProgrammingLanguage<'lang>>,
+    programming_languages: [ProgrammingLanguage<'lang>; 2],
 }
 
 impl<'lang> NvimLangCore<'lang> {
