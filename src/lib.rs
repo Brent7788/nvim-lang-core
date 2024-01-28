@@ -1,4 +1,5 @@
 pub mod common;
+pub mod lang_tool;
 pub mod modules;
 pub mod nvim_lang_core;
 pub mod programming_lang;
