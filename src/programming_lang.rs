@@ -35,26 +35,23 @@ pub struct ProgrammingLanguage<'lang> {
 }
 
 impl<'lang> ProgrammingLanguage<'lang> {
-    pub fn init() -> Vec<ProgrammingLanguage<'lang>> {
-        let mut programming_languages: Vec<ProgrammingLanguage> = Vec::with_capacity(2);
-
-        programming_languages.push(ProgrammingLanguage {
-            extension: ".lua",
-            comment_delimiter: "--",
-            block_comment_delimiter_start: "",
-            block_comment_delimiter_end: "",
-            lang_type: ProgrammingLanguageType::Lua,
-        });
-
-        programming_languages.push(ProgrammingLanguage {
-            extension: ".rs",
-            comment_delimiter: "//",
-            block_comment_delimiter_start: "/*",
-            block_comment_delimiter_end: "*/",
-            lang_type: ProgrammingLanguageType::Rust,
-        });
-
-        return programming_languages;
+    pub const fn init() -> [ProgrammingLanguage<'lang>; 2] {
+        return [
+            ProgrammingLanguage {
+                extension: ".lua",
+                comment_delimiter: "--",
+                block_comment_delimiter_start: "",
+                block_comment_delimiter_end: "",
+                lang_type: ProgrammingLanguageType::Lua,
+            },
+            ProgrammingLanguage {
+                extension: ".rs",
+                comment_delimiter: "//",
+                block_comment_delimiter_start: "/*",
+                block_comment_delimiter_end: "*/",
+                lang_type: ProgrammingLanguageType::Rust,
+            },
+        ];
     }
 }
 
@@ -87,7 +84,6 @@ impl<'pf> ProgrammingFile<'pf> {
         };
 
         let file_buf_reader = BufReader::new(file);
-        let mut is_block_comment = false;
 
         for (index, line_res) in file_buf_reader.lines().enumerate() {
             let line = match line_res {
@@ -98,23 +94,11 @@ impl<'pf> ProgrammingFile<'pf> {
                 }
             };
 
-            let mut programming_line = ProgrammingLine::new(index + 1, line, self.lang);
+            let mut programming_line = ProgrammingLine::new(index + 1, line);
             programming_line.set_type(self.lang, self.lines.last());
-            /*             let line = &programming_line.original_line;
-
-            if !is_block_comment {
-                is_block_comment = line.contains(self.lang.block_comment_delimiter_start);
-            }
-
-            if is_block_comment {
-                is_block_comment = !line.contains(self.lang.block_comment_delimiter_end);
-                programming_line.set_commented();
-                programming_line.prog_type = ProgrammingLineType::BlockComment;
-                self.lines.push(programming_line);
-                continue;
-            } */
-
-            // programming_line.set_commented_and_code_line(self.lang);
+            programming_line.set_if_comment(self.lang);
+            programming_line.set_if_block_comment();
+            programming_line.set_if_code();
 
             self.lines.push(programming_line);
         }
@@ -138,21 +122,13 @@ pub struct ProgrammingLine {
 }
 
 impl ProgrammingLine {
-    pub fn new(line_number: usize, original_line: String, lang: &ProgrammingLanguage) -> Self {
-        let mut prog_type = ProgrammingLineType::Unknown;
-        /*
-        if original_line.is_empty() {
-            prog_type = ProgrammingLineType::NewLine;
-        } else if original_line.contains(lang.block_comment_delimiter_start) {
-            prog_type = ProgrammingLineType::BlockCommentStart
-        } */
-
+    pub fn new(line_number: usize, original_line: String) -> Self {
         return ProgrammingLine {
             line_number,
             original_line,
             commented_line: None,
             code_line: None,
-            prog_type,
+            prog_type: ProgrammingLineType::Unknown,
         };
     }
 
@@ -201,38 +177,46 @@ impl ProgrammingLine {
         self.prog_type = ProgrammingLineType::Code;
     }
 
-    pub fn set_commented(&mut self) {
-        if self.original_line.is_empty() {
-            return;
-        }
-
-        self.commented_line = Some(self.original_line.as_str());
-    }
-
-    pub fn set_commented_and_code_line(&mut self, lang: &ProgrammingLanguage) {
-        if self.original_line.is_empty() {
+    fn set_if_comment(&mut self, lang: &ProgrammingLanguage) {
+        if !matches!(self.prog_type, ProgrammingLineType::Comment) {
             return;
         }
 
         let line_comment_option = self.original_line.split_once(lang.comment_delimiter);
 
-        match line_comment_option {
-            Some((left_of_line, right_of_line)) => {
-                self.commented_line = Some(right_of_line);
+        if let Some((left_of_line, right_of_line)) = line_comment_option {
+            self.commented_line = Some(right_of_line);
 
-                if left_of_line.trim().is_empty() {
-                    self.prog_type = ProgrammingLineType::Comment;
-                    return;
-                }
-                // TODO: The code line need to be transformed
-                self.code_line = Some(left_of_line);
-                self.prog_type = ProgrammingLineType::CodeWithComment;
+            if left_of_line.trim().is_empty() {
+                return;
             }
-            None => {
-                self.code_line = Some(self.original_line.as_str());
-                self.prog_type = ProgrammingLineType::Code;
-            }
+            // TODO: The code line need to be transformed
+            self.code_line = Some(left_of_line);
+            self.prog_type = ProgrammingLineType::CodeWithComment;
         }
+    }
+
+    // TODO: What if there is code on the same line.
+    //       What if there is two or more block comments on the same line.
+    fn set_if_block_comment(&mut self) {
+        match self.prog_type {
+            ProgrammingLineType::BlockCommentStart => (),
+            ProgrammingLineType::BlockComment => (),
+            ProgrammingLineType::BlockCommentEnd => (),
+            ProgrammingLineType::BlockCommentStartAndEnd => (),
+            _ => return,
+        }
+
+        self.commented_line = Some(self.original_line.as_str());
+    }
+
+    fn set_if_code(&mut self) {
+        if !matches!(self.prog_type, ProgrammingLineType::Code) {
+            return;
+        }
+
+        // TODO: The code line need to be transformed
+        self.code_line = Some(self.original_line.as_str());
     }
 
     //TODO: Find better method name
