@@ -3,16 +3,16 @@ use reqwest::Client;
 
 use crate::programming_lang::{ProgrammingFile, ProgrammingLanguage};
 
+// TODO: Should be in its own file.
 #[derive(Debug)]
-pub struct NvimLangCore<'lang> {
-    languagetool_url: String,
-    language: String,
-    client: Client,
-    programming_languages: [ProgrammingLanguage<'lang>; 2],
+pub struct LangToolClient {
+    pub languagetool_url: String,
+    pub language: String,
+    pub client: Client,
 }
 
-impl<'lang> NvimLangCore<'lang> {
-    pub fn new(lang_tool_url: Option<String>, lang: Option<String>) -> NvimLangCore<'lang> {
+impl LangToolClient {
+    pub fn new(lang_tool_url: Option<String>, lang: Option<String>) -> Self {
         let mut languagetool_url: String = "http://localhost:8081".to_owned();
         let mut language: String = "en-US".to_owned();
         let client = Client::new();
@@ -25,10 +25,24 @@ impl<'lang> NvimLangCore<'lang> {
             language = lang;
         }
 
-        return NvimLangCore {
+        return LangToolClient {
             languagetool_url,
             language,
             client,
+        };
+    }
+}
+
+#[derive(Debug)]
+pub struct NvimLangCore<'lang> {
+    lang_tool_client: LangToolClient,
+    programming_languages: [ProgrammingLanguage<'lang>; 2],
+}
+
+impl<'lang> NvimLangCore<'lang> {
+    pub fn new(lang_tool_url: Option<String>, lang: Option<String>) -> NvimLangCore<'lang> {
+        return NvimLangCore {
+            lang_tool_client: LangToolClient::new(lang_tool_url, lang),
             programming_languages: ProgrammingLanguage::init(),
         };
     }
