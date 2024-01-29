@@ -1,6 +1,7 @@
 use serde::Deserialize;
 
 // TODO: Remember to remove all of the '#[allow(dead_code)]'
+// All of the u16 might need to be bigger.
 
 #[derive(Deserialize, Debug)]
 #[allow(dead_code)]
@@ -17,6 +18,7 @@ pub struct Matche {
     replacements: Vec<Replacement>,
     offset: u16,
     length: u16,
+    context: Context,
     sentence: String,
     rule: Rule,
 }
@@ -25,6 +27,14 @@ pub struct Matche {
 #[allow(dead_code)]
 pub struct Replacement {
     value: String,
+}
+
+#[derive(Deserialize, Debug)]
+#[allow(dead_code)]
+pub struct Context {
+    text: String,
+    offset: u16,
+    length: u16,
 }
 
 #[derive(Deserialize, Debug)]
