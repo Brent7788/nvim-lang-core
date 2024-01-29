@@ -9,7 +9,7 @@ pub mod first_test {
     //curl -X POST --header 'Content-Type: application/x-www-form-urlencoded'
     //--header 'Accept: application/json' -d 'language=en-US&enabledOnly=false' 'http://localhost:8081/v2/check?text=get%20this%20tets'
 
-    #[tokio::test]
+    /*     #[tokio::test]
     async fn first() {
         Logger::console_init();
         env::set_var("RUST_BACKTRACE", "1");
@@ -39,15 +39,21 @@ pub mod first_test {
         }
 
         log::logger().flush();
-    }
+    } */
 
     #[tokio::test]
     async fn sec() {
+        Logger::console_init();
+        env::set_var("RUST_BACKTRACE", "1");
+
         let core = NvimLangCore::new(None, None);
 
         core.process_file(
             "/home/brent/Documents/projects/nvim-lang-core/tests/file_test_cases/person.rs"
                 .to_owned(),
-        );
+        )
+        .await;
+
+        log::logger().flush();
     }
 }

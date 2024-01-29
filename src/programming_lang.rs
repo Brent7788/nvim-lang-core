@@ -237,6 +237,13 @@ impl ProgrammingLine {
         self.hash = hasher.finish();
     }
 
+    pub fn get_comment(&self) -> &str {
+        return match self.commented_line {
+            Some(cmt) => unsafe { &*cmt },
+            None => "",
+        };
+    }
+
     //TODO: Find better method name
     pub fn debug_ptrs(&self) -> (Option<&str>, Option<&str>) {
         let code_line = match self.code_line {
