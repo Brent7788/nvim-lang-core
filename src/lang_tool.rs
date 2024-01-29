@@ -49,16 +49,19 @@ impl<'c> Comment<'c> {
         let mut comment: Comment = Comment::new();
 
         for prog_line in &prog_file.lines {
-            if !Comment::is_line_comment(prog_line) {
+            if !Comment::is_line_comment(prog_line) && !comment.is_empty() {
                 comment.lang_tool = client.get_lang_tool(&comment.comment).await;
                 comments.push(comment);
                 comment = Comment::new();
+                continue;
+            } else if !Comment::is_line_comment(prog_line) && comment.is_empty() {
                 continue;
             }
 
             comment.push_line_end_offset(prog_line);
 
-            comment.comment = format!("{}{}", comment.comment.as_str(), prog_line.get_comment());
+            //TODO: Need to remove the trailing line break
+            comment.comment = format!("{}\n{}", comment.comment.as_str(), prog_line.get_comment());
 
             comment.prog_lines.push(prog_line);
         }
@@ -91,5 +94,14 @@ impl<'c> Comment<'c> {
         let offset = prog_line.original_line.len() - 1 + last_line_end_offset;
 
         self.line_end_offset.push(offset);
+    }
+
+    fn is_empty(&self) -> bool {
+        if self.prog_lines.is_empty() && self.line_end_offset.is_empty() && self.comment.is_empty()
+        {
+            return true;
+        }
+
+        return false;
     }
 }
