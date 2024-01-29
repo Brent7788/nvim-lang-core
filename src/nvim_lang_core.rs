@@ -1,37 +1,8 @@
 use log::{info, warn};
-use reqwest::Client;
 
+use crate::lang_tool::LangToolCore;
+use crate::lang_tool_client::LangToolClient;
 use crate::programming_lang::{ProgrammingFile, ProgrammingLanguage};
-
-// TODO: Should be in its own file.
-#[derive(Debug)]
-pub struct LangToolClient {
-    pub languagetool_url: String,
-    pub language: String,
-    pub client: Client,
-}
-
-impl LangToolClient {
-    pub fn new(lang_tool_url: Option<String>, lang: Option<String>) -> Self {
-        let mut languagetool_url: String = "http://localhost:8081".to_owned();
-        let mut language: String = "en-US".to_owned();
-        let client = Client::new();
-
-        if let Some(url) = lang_tool_url {
-            languagetool_url = url;
-        }
-
-        if let Some(lang) = lang {
-            language = lang;
-        }
-
-        return LangToolClient {
-            languagetool_url,
-            language,
-            client,
-        };
-    }
-}
 
 #[derive(Debug)]
 pub struct NvimLangCore<'lang> {
@@ -47,7 +18,7 @@ impl<'lang> NvimLangCore<'lang> {
         };
     }
 
-    pub fn process_file(&self, file_path: String) {
+    pub async fn process_file(&self, file_path: String) {
         if file_path.is_empty() {
             warn!("No file path was provided");
             return;
@@ -68,8 +39,11 @@ impl<'lang> NvimLangCore<'lang> {
 
         prog_file.process_lines();
 
-        info!("{:#?}", prog_file);
-        prog_file.debug_p();
+        //info!("{:#?}", prog_file);
+        // prog_file.debug_p();
+
+        let lang_tool_core = LangToolCore::new(&prog_file, &self.lang_tool_client).await;
+        info!("{:#?}", lang_tool_core);
     }
 
     fn get_file_type(&self, file_path: &String) -> Option<&ProgrammingLanguage> {
