@@ -1,13 +1,33 @@
-use crate::{modules::LangTool, nvim_lang_core::LangToolClient, programming_lang::ProgrammingLine};
+use log::info;
+
+use crate::{
+    lang_tool_client::LangToolClient,
+    modules::LangTool,
+    programming_lang::{ProgrammingFile, ProgrammingLine},
+};
 
 //TODO: Find better name
 #[derive(Debug)]
-pub struct LangToolCore {}
+pub struct LangToolCore<'ltc> {
+    comments: Vec<Comment<'ltc>>,
+}
+
+impl<'ltc> LangToolCore<'ltc> {
+    pub async fn new(
+        prog_file: &'ltc ProgrammingFile<'ltc>,
+        client: &LangToolClient,
+    ) -> LangToolCore<'ltc> {
+        return LangToolCore {
+            comments: Comment::generate(prog_file, client).await,
+        };
+    }
+}
 
 #[derive(Debug)]
 struct Comment<'c> {
     prog_lines: Vec<&'c ProgrammingLine>,
     line_end_offset: Vec<usize>,
+    comment: String,
     lang_tool: Option<LangTool>,
 }
 
@@ -16,26 +36,29 @@ impl<'c> Comment<'c> {
         return Comment {
             prog_lines: Vec::new(),
             line_end_offset: Vec::new(),
+            comment: String::new(),
             lang_tool: None,
         };
     }
-    fn generate<'pl>(
-        prog_lines: &'pl Vec<ProgrammingLine>,
+    async fn generate<'pl>(
+        prog_file: &'pl ProgrammingFile<'pl>,
         client: &LangToolClient,
     ) -> Vec<Comment<'pl>> {
         let mut comments: Vec<Comment> = Vec::new();
 
         let mut comment: Comment = Comment::new();
 
-        for prog_line in prog_lines {
+        for prog_line in &prog_file.lines {
             if !Comment::is_line_comment(prog_line) {
-                // TODO: Need to get lang tool by using the client.
+                comment.lang_tool = client.get_lang_tool(&comment.comment).await;
                 comments.push(comment);
                 comment = Comment::new();
                 continue;
             }
 
-            comment.line_end_offset.push(prog_line.original_line.len());
+            comment.push_line_end_offset(prog_line);
+
+            comment.comment = format!("{}{}", comment.comment.as_str(), prog_line.get_comment());
 
             comment.prog_lines.push(prog_line);
         }
@@ -58,8 +81,15 @@ impl<'c> Comment<'c> {
             _ => false,
         };
     }
-}
 
-fn get_lang_tool(client: &LangToolClient) -> LangTool {
-    unimplemented!();
+    fn push_line_end_offset(&mut self, prog_line: &ProgrammingLine) {
+        let last_line_end_offset = match self.line_end_offset.last() {
+            Some(ln_end) => ln_end,
+            None => &0,
+        };
+
+        let offset = prog_line.original_line.len() - 1 + last_line_end_offset;
+
+        self.line_end_offset.push(offset);
+    }
 }
