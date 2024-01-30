@@ -8,6 +8,28 @@ use crate::{
 
 //TODO: Find better name
 #[derive(Debug)]
+pub struct NvimLangCoreData {
+    file_path: String,
+    data: Vec<Data>,
+}
+
+//TODO: Find better name
+#[derive(Debug)]
+pub struct Data {
+    line_number: u32,
+    start_column: u32,
+    end_column: u32,
+    data_type: DataType,
+}
+
+//TODO: Find better name
+#[derive(Debug)]
+pub enum DataType {
+    SpellMistake,
+}
+
+//TODO: Find better name
+#[derive(Debug)]
 pub struct LangToolCore<'ltc> {
     comments: Vec<Comment<'ltc>>,
 }
