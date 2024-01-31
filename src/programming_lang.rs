@@ -60,8 +60,8 @@ impl<'lang> ProgrammingLanguage<'lang> {
 // TODO: Find better name
 #[derive(Debug)]
 pub struct ProgrammingFile<'pf> {
-    file_path: &'pf str,
-    lang: &'pf ProgrammingLanguage<'pf>,
+    pub file_path: &'pf str,
+    pub lang: &'pf ProgrammingLanguage<'pf>,
     pub lines: Vec<ProgrammingLine>,
 }
 

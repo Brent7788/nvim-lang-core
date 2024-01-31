@@ -1,8 +1,8 @@
-use log::info;
+use log::{info, warn};
 
 use crate::{
     lang_tool_client::LangToolClient,
-    modules::LangTool,
+    modules::{LangTool, Matche},
     programming_lang::{ProgrammingFile, ProgrammingLine},
 };
 
@@ -19,7 +19,14 @@ pub struct Data {
     line_number: u32,
     start_column: u32,
     end_column: u32,
+    options: Options,
     data_type: DataType,
+}
+
+#[derive(Debug)]
+pub struct Options {
+    original: String,
+    options: Vec<String>,
 }
 
 //TODO: Find better name
@@ -31,6 +38,7 @@ pub enum DataType {
 //TODO: Find better name
 #[derive(Debug)]
 pub struct LangToolCore<'ltc> {
+    prog_file: &'ltc ProgrammingFile<'ltc>,
     comments: Vec<Comment<'ltc>>,
 }
 
@@ -40,9 +48,75 @@ impl<'ltc> LangToolCore<'ltc> {
         client: &LangToolClient,
     ) -> LangToolCore<'ltc> {
         return LangToolCore {
+            prog_file,
             comments: Comment::generate(prog_file, client).await,
         };
     }
+
+    //TODO: Find better name
+    pub fn get_data(&self) -> NvimLangCoreData {
+        let mut nvim_core = NvimLangCoreData {
+            file_path: self.prog_file.file_path.to_owned(),
+            data: Vec::new(),
+        };
+
+        for comment in &self.comments {
+            let matches: &Vec<Matche> = match comment.lang_tool {
+                Some(ref lang_tool) => {
+                    if lang_tool.matches.is_empty() {
+                        continue;
+                    }
+
+                    &lang_tool.matches
+                }
+                None => continue,
+            };
+
+            for lang_match in matches {
+                let context = &lang_match.context;
+                let start_column = context.offset;
+                let end_column = context.offset + context.length;
+                let chunk: &str = &context.text[start_column..end_column];
+
+                if chunk.is_empty() {
+                    // TODO: Find better warning message
+                    warn!("One of the matches is empty");
+                }
+
+                for line in &comment.prog_lines {
+                    if !line.original_line.contains(chunk) {
+                        continue;
+                    }
+
+                    let o = find_target_offset(&line.original_line, chunk);
+                    info!("+++++ {:?} -{}-,   {}", o, chunk, line.original_line)
+                }
+
+                // nvim_core.data.push(Data {});
+            }
+        }
+
+        return nvim_core;
+    }
+}
+
+// BUG: What if there is comma or some line brake after or before the work/target I'm looking for
+// in a string
+fn find_target_offset(s: &str, target: &str) -> Option<usize> {
+    let mut offset = 0;
+
+    // Iterate through the characters of the string
+    for word in s.split_whitespace() {
+        if word == target {
+            return Some(offset);
+        }
+
+        // Increment the offset by the length of the current word and one for the space
+        offset += word.len() + 1;
+    }
+
+    // If the target word is not found, return None
+    None
 }
 
 #[derive(Debug)]

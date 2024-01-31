@@ -1,40 +1,39 @@
 use serde::Deserialize;
 
 // TODO: Remember to remove all of the '#[allow(dead_code)]'
-// All of the u16 might need to be bigger.
 
 #[derive(Deserialize, Debug)]
 #[allow(dead_code)]
 pub struct LangTool {
-    matches: Vec<Matche>,
+    pub matches: Vec<Matche>,
 }
 
 #[derive(Deserialize, Debug)]
 #[allow(dead_code)]
 pub struct Matche {
-    message: String,
+    pub message: String,
     #[serde(rename = "shortMessage")]
-    short_message: String,
-    replacements: Vec<Replacement>,
-    offset: u16,
-    length: u16,
-    context: Context,
-    sentence: String,
-    rule: Rule,
+    pub short_message: String,
+    pub replacements: Vec<Replacement>,
+    pub offset: usize,
+    pub length: usize,
+    pub context: Context,
+    pub sentence: String,
+    pub rule: Rule,
 }
 
 #[derive(Deserialize, Debug)]
 #[allow(dead_code)]
 pub struct Replacement {
-    value: String,
+    pub value: String,
 }
 
 #[derive(Deserialize, Debug)]
 #[allow(dead_code)]
 pub struct Context {
-    text: String,
-    offset: u16,
-    length: u16,
+    pub text: String,
+    pub offset: usize,
+    pub length: usize,
 }
 
 #[derive(Deserialize, Debug)]
