@@ -45,7 +45,8 @@ impl<'lang> NvimLangCore<'lang> {
         let lang_tool_core = LangToolCore::new(&prog_file, &self.lang_tool_client).await;
         info!("{:#?}", lang_tool_core);
 
-        lang_tool_core.get_data();
+        let n = lang_tool_core.get_data();
+        info!("{:#?}", n);
     }
 
     fn get_file_type(&self, file_path: &String) -> Option<&ProgrammingLanguage> {

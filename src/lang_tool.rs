@@ -16,9 +16,9 @@ pub struct NvimLangCoreData {
 //TODO: Find better name
 #[derive(Debug)]
 pub struct Data {
-    line_number: u32,
-    start_column: u32,
-    end_column: u32,
+    line_number: usize,
+    start_column: usize,
+    end_column: usize,
     options: Options,
     data_type: DataType,
 }
@@ -74,13 +74,14 @@ impl<'ltc> LangToolCore<'ltc> {
 
             for lang_match in matches {
                 let context = &lang_match.context;
-                let start_column = context.offset;
-                let end_column = context.offset + context.length;
-                let chunk: &str = &context.text[start_column..end_column];
+                let offset = context.offset;
+                let lenth = context.offset + context.length;
+                let chunk: &str = &context.text[offset..lenth];
 
                 if chunk.is_empty() {
                     // TODO: Find better warning message
                     warn!("One of the matches is empty");
+                    continue;
                 }
 
                 for line in &comment.prog_lines {
@@ -88,35 +89,53 @@ impl<'ltc> LangToolCore<'ltc> {
                         continue;
                     }
 
-                    let o = find_target_offset(&line.original_line, chunk);
-                    info!("+++++ {:?} -{}-,   {}", o, chunk, line.original_line)
-                }
+                    // TODO: Need to check if there is multiple words wrong on the same line
+                    let start_column = match self.find_target_offset(&line.original_line, chunk) {
+                        Some(start_column) => start_column,
+                        None => {
+                            warn!(
+                                "Was unable to get offset off word {} in line {}",
+                                chunk, line.line_number
+                            );
+                            continue;
+                        }
+                    };
 
-                // nvim_core.data.push(Data {});
+                    info!("OR:{}", line.original_line);
+
+                    nvim_core.data.push(Data {
+                        line_number: line.line_number,
+                        start_column,
+                        end_column: start_column + context.length,
+                        options: Options {
+                            original: chunk.to_owned(),
+                            options: lang_match
+                                .replacements
+                                .iter()
+                                .map(|r| r.value.clone())
+                                .collect(), // TODO: There should be max limit on the options!
+                        },
+                        data_type: DataType::SpellMistake,
+                    })
+                }
             }
         }
 
         return nvim_core;
     }
-}
 
-// BUG: What if there is comma or some line brake after or before the work/target I'm looking for
-// in a string
-fn find_target_offset(s: &str, target: &str) -> Option<usize> {
-    let mut offset = 0;
+    //BUG: What if the target work is between multiple characters?
+    //     What if there is multiple targets in the same input string?
+    fn find_target_offset(&self, input_string: &str, target: &str) -> Option<usize> {
+        let n = input_string.split_once(target);
 
-    // Iterate through the characters of the string
-    for word in s.split_whitespace() {
-        if word == target {
-            return Some(offset);
-        }
-
-        // Increment the offset by the length of the current word and one for the space
-        offset += word.len() + 1;
+        return match n {
+            Some((left, _)) => {
+                return Some(left.len());
+            }
+            None => None,
+        };
     }
-
-    // If the target word is not found, return None
-    None
 }
 
 #[derive(Debug)]
