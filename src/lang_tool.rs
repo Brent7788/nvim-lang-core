@@ -1,4 +1,4 @@
-use log::{info, warn};
+use log::{debug, info, warn};
 
 use crate::{
     lang_tool_client::LangToolClient,
@@ -76,6 +76,8 @@ impl<'ltc> LangToolCore<'ltc> {
         // info!("{:#?}", self);
 
         for comment in &self.comments {
+            debug!("COMMENT = {:#?}", comment);
+
             let matches: &Vec<Matche> = match comment.lang_tool {
                 Some(ref lang_tool) => {
                     if lang_tool.matches.is_empty() {
@@ -104,6 +106,10 @@ impl<'ltc> LangToolCore<'ltc> {
                         continue;
                     }
 
+                    if !line.original_line.contains(&lang_match.sentence) {
+                        continue;
+                    }
+
                     // TODO: Need to check if there is multiple words wrong on the same line
                     let start_column = match self.find_target_offset(&line.original_line, chunk) {
                         Some(start_column) => start_column,
@@ -116,7 +122,10 @@ impl<'ltc> LangToolCore<'ltc> {
                         }
                     };
 
-                    // info!("OR:{}", line.original_line);
+                    debug!(
+                        "OR: {} -{}- {}",
+                        line.line_number, chunk, line.original_line
+                    );
 
                     nvim_core.data.push(Data {
                         line_number: line.line_number,
@@ -198,11 +207,12 @@ impl<'c> Comment<'c> {
             // info!("WHAT COMMENT: {:#?}", comment);
         }
 
-        // info!("COMMENT: {:#?}", comment);
         if comment.prog_lines.len() > 0 {
             comment.lang_tool = client.get_lang_tool(&comment.comment).await;
             comments.push(comment);
         }
+
+        // info!("COMMENT: {:#?}", comments);
 
         return comments;
     }
