@@ -9,24 +9,37 @@ use crate::{
 //TODO: Find better name
 #[derive(Debug)]
 pub struct NvimLangCoreData {
-    file_path: String,
-    data: Vec<Data>,
+    pub file_path: String,
+    pub data: Vec<Data>,
+}
+
+impl NvimLangCoreData {
+    pub fn new() -> Self {
+        return NvimLangCoreData {
+            file_path: String::new(),
+            data: Vec::new(),
+        };
+    }
+
+    pub fn is_empty(&self) -> bool {
+        return self.file_path.is_empty() || self.data.is_empty();
+    }
 }
 
 //TODO: Find better name
 #[derive(Debug)]
 pub struct Data {
-    line_number: usize,
-    start_column: usize,
-    end_column: usize,
-    options: Options,
-    data_type: DataType,
+    pub line_number: usize,
+    pub start_column: usize,
+    pub end_column: usize,
+    pub options: Options,
+    pub data_type: DataType,
 }
 
 #[derive(Debug)]
 pub struct Options {
-    original: String,
-    options: Vec<String>,
+    pub original: String,
+    pub options: Vec<String>,
 }
 
 //TODO: Find better name
@@ -59,6 +72,8 @@ impl<'ltc> LangToolCore<'ltc> {
             file_path: self.prog_file.file_path.to_owned(),
             data: Vec::new(),
         };
+
+        // info!("{:#?}", self);
 
         for comment in &self.comments {
             let matches: &Vec<Matche> = match comment.lang_tool {
@@ -101,7 +116,7 @@ impl<'ltc> LangToolCore<'ltc> {
                         }
                     };
 
-                    info!("OR:{}", line.original_line);
+                    // info!("OR:{}", line.original_line);
 
                     nvim_core.data.push(Data {
                         line_number: line.line_number,
@@ -141,7 +156,7 @@ impl<'ltc> LangToolCore<'ltc> {
 #[derive(Debug)]
 struct Comment<'c> {
     prog_lines: Vec<&'c ProgrammingLine>,
-    line_end_offset: Vec<usize>,
+    line_end_offset: Vec<usize>, // TODO: This is not being used.
     comment: String,
     lang_tool: Option<LangTool>,
 }
@@ -179,9 +194,13 @@ impl<'c> Comment<'c> {
             comment.comment = format!("{}\n{}", comment.comment.as_str(), prog_line.get_comment());
 
             comment.prog_lines.push(prog_line);
+
+            // info!("WHAT COMMENT: {:#?}", comment);
         }
 
+        // info!("COMMENT: {:#?}", comment);
         if comment.prog_lines.len() > 0 {
+            comment.lang_tool = client.get_lang_tool(&comment.comment).await;
             comments.push(comment);
         }
 
