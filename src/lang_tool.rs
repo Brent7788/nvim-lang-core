@@ -1,8 +1,10 @@
+use std::{fmt, isize};
+
 use log::{debug, info, warn};
 
 use crate::{
     lang_tool_client::LangToolClient,
-    modules::{LangTool, Matche},
+    modules::{Category, LangTool, Matche},
     programming_lang::{ProgrammingFile, ProgrammingLine},
 };
 
@@ -45,7 +47,50 @@ pub struct Options {
 //TODO: Find better name
 #[derive(Debug)]
 pub enum DataType {
-    SpellMistake,
+    Typos,
+    Punctuation,
+    ConfusedWords,
+    Redundancy,
+    Casing,
+    Grammar,
+    Misc,
+    Semantics,
+    Other,
+}
+
+impl DataType {
+    fn get_type(cat: &Category) -> DataType {
+        return match cat.id.as_str() {
+            "TYPOS" => DataType::Typos,
+            "PUNCTUATION" => DataType::Punctuation,
+            "CONFUSED_WORDS" => DataType::ConfusedWords,
+            "REDUNDANCY" => DataType::Redundancy,
+            "CASING" => DataType::Casing,
+            "GRAMMAR" => DataType::Grammar,
+            "MISC" => DataType::Misc,
+            "SEMANTICS" => DataType::Semantics,
+            _ => DataType::Other,
+        };
+    }
+}
+
+//TODO: Should remove this code!
+impl fmt::Display for DataType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let data_type = match self {
+            DataType::Typos => "TYPOS",
+            DataType::Punctuation => "PUNCTUATION",
+            DataType::ConfusedWords => "CONFUSED_WORDS",
+            DataType::Redundancy => "REDUNDANCY",
+            DataType::Casing => "CASING",
+            DataType::Grammar => "GRAMMAR",
+            DataType::Misc => "MISC",
+            DataType::Semantics => "SEMANTICS",
+            DataType::Other => "OTHER",
+        };
+
+        return write!(f, "{}", data_type);
+    }
 }
 
 //TODO: Find better name
@@ -95,23 +140,30 @@ impl<'ltc> LangToolCore<'ltc> {
                 let lenth = context.offset + context.length;
                 let chunk: &str = &context.text[offset..lenth];
 
+                debug!("CHUNk === *{}*{}", chunk, lang_match.sentence);
                 if chunk.is_empty() {
                     // TODO: Find better warning message
                     warn!("One of the matches is empty");
                     continue;
                 }
 
+                /*                 let line = comment
+                                   .prog_lines
+                                   .iter()
+                                   .find(|ln| ln.original_line.contains(&lang_match.sentence));
+                */
                 for line in &comment.prog_lines {
-                    if !line.original_line.contains(chunk) {
+                    /*                     if !line.original_line.contains(chunk) {
                         continue;
                     }
 
                     if !line.original_line.contains(&lang_match.sentence) {
                         continue;
-                    }
+                    } */
 
                     // TODO: Need to check if there is multiple words wrong on the same line
-                    let start_column = match self.find_target_offset(&line.original_line, chunk) {
+                    //
+                    /*                     let start_column = match self.find_target_offset(&line.original_line, chunk) {
                         Some(start_column) => start_column,
                         None => {
                             warn!(
@@ -120,27 +172,42 @@ impl<'ltc> LangToolCore<'ltc> {
                             );
                             continue;
                         }
-                    };
+                    }; */
 
                     debug!(
                         "OR: {} -{}- {}",
-                        line.line_number, chunk, line.original_line
+                        line.line_number, chunk, line.original_line,
                     );
 
-                    nvim_core.data.push(Data {
-                        line_number: line.line_number,
-                        start_column,
-                        end_column: start_column + context.length,
-                        options: Options {
-                            original: chunk.to_owned(),
-                            options: lang_match
-                                .replacements
-                                .iter()
-                                .map(|r| r.value.clone())
-                                .collect(), // TODO: There should be max limit on the options!
-                        },
-                        data_type: DataType::SpellMistake,
-                    })
+                    let start_columns =
+                        LangToolCore::get_target_offsets(&line.original_line, chunk);
+
+                    debug!("Columns {:?}", start_columns);
+
+                    if start_columns.is_empty() {
+                        /*                         warn!(
+                            "Was unable to get offset off word {} in line {}",
+                            chunk, line.line_number
+                        ); */
+                        continue;
+                    }
+
+                    for start_column in start_columns {
+                        nvim_core.data.push(Data {
+                            line_number: line.line_number,
+                            start_column,
+                            end_column: start_column + context.length,
+                            options: Options {
+                                original: chunk.to_owned(),
+                                options: lang_match
+                                    .replacements
+                                    .iter()
+                                    .map(|r| r.value.clone())
+                                    .collect(), // TODO: There should be max limit on the options!
+                            },
+                            data_type: DataType::get_type(&lang_match.rule.category),
+                        });
+                    }
                 }
             }
         }
@@ -148,17 +215,76 @@ impl<'ltc> LangToolCore<'ltc> {
         return nvim_core;
     }
 
-    //BUG: What if the target work is between multiple characters?
-    //     What if there is multiple targets in the same input string?
-    fn find_target_offset(&self, input_string: &str, target: &str) -> Option<usize> {
-        let n = input_string.split_once(target);
+    const ALPHABET: &[char] = &[
+        'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r',
+        's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
+        'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+    ];
 
-        return match n {
-            Some((left, _)) => {
-                return Some(left.len());
+    fn is_first_char_part_of_alpb(sen: &str) -> bool {
+        if sen.is_empty() {
+            return false;
+        }
+
+        let first_char = &(sen.as_bytes()[0] as char);
+
+        for alpb in LangToolCore::ALPHABET {
+            if alpb == first_char {
+                return true;
             }
-            None => None,
-        };
+        }
+
+        return false;
+    }
+
+    fn is_not_valid_offset(input_indext: usize, input: &Vec<&str>) -> bool {
+        //INFO: The last input offset is always invalid
+        if input_indext == input.len() - 1 {
+            return true;
+        }
+
+        let before_index = input_indext as isize - 1;
+        let after_index = input_indext + 1;
+
+        if before_index == -1 {
+            return LangToolCore::is_first_char_part_of_alpb(input[after_index]);
+        }
+
+        if after_index == input.len() {
+            return LangToolCore::is_first_char_part_of_alpb(input[before_index as usize]);
+        }
+
+        return LangToolCore::is_first_char_part_of_alpb(input[before_index as usize])
+            || LangToolCore::is_first_char_part_of_alpb(input[after_index]);
+    }
+
+    //BUG: This is not good enough. The Language Tool will return a sentence with offset.
+    //     Use the offset in the sentence to get the before and after word for match.
+    fn get_target_offsets(input_string: &str, target: &str) -> Vec<usize> {
+        let input_collection: Vec<&str> = input_string.split(target).collect();
+        let mut offsets: Vec<usize> = Vec::new();
+
+        if input_collection.is_empty() || input_collection.len() == 1 {
+            return offsets;
+        }
+
+        let mut current_offset: usize = 0;
+
+        for (index, input) in input_collection.iter().enumerate() {
+            current_offset += (*input).len();
+
+            if index > 0 {
+                current_offset += target.len();
+            }
+
+            if LangToolCore::is_not_valid_offset(index, &input_collection) {
+                continue;
+            }
+
+            offsets.push(current_offset);
+        }
+
+        return offsets;
     }
 }
 
@@ -199,8 +325,7 @@ impl<'c> Comment<'c> {
 
             comment.push_line_end_offset(prog_line);
 
-            //TODO: Need to remove the trailing line break
-            comment.comment = format!("{}\n{}", comment.comment.as_str(), prog_line.get_comment());
+            comment.comment = format!("{} {}", comment.comment.as_str(), prog_line.get_comment());
 
             comment.prog_lines.push(prog_line);
 

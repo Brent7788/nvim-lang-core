@@ -192,7 +192,7 @@ impl ProgrammingLine {
         let line_comment_option = self.original_line.split_once(lang.comment_delimiter);
 
         if let Some((left_of_line, right_of_line)) = line_comment_option {
-            self.commented_line = Some(right_of_line);
+            self.commented_line = Some(right_of_line.trim());
 
             if left_of_line.trim().is_empty() {
                 return;
@@ -214,7 +214,7 @@ impl ProgrammingLine {
             _ => return,
         }
 
-        self.commented_line = Some(self.original_line.as_str());
+        self.commented_line = Some(self.original_line.trim());
     }
 
     fn set_if_code(&mut self) {

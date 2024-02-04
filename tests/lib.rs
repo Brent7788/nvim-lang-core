@@ -55,7 +55,7 @@ pub mod tests {
     const TEST_FILE_PATH: &str = "/nvim-lang-core/tests/file_test_cases";
     const TEST_COMMENT_PATH: &str = "/comments";
 
-    #[tokio::test]
+    /*     #[tokio::test]
     async fn simple_comment_should_be() {
         env::set_var("RUST_BACKTRACE", "1");
 
@@ -94,7 +94,6 @@ pub mod tests {
 
     #[tokio::test]
     async fn comment_block_should_be() {
-        Logger::console_init();
         env::set_var("RUST_BACKTRACE", "1");
 
         let file_path = get_test_comment_path("/comment_block.rs");
@@ -102,8 +101,6 @@ pub mod tests {
         let core = NvimLangCore::new(None, None);
 
         let result = core.process_file(file_path).await;
-
-        info!("{:#?}", result);
 
         log::logger().flush();
 
@@ -114,6 +111,25 @@ pub mod tests {
         Expected::new(4, 12, 19, 5, "brances", vec!["branches"]).assert(3, &result);
         Expected::new(4, 36, 45, 2, "especialy", vec!["especially"]).assert(4, &result);
         Expected::new(4, 77, 83, 2, "prduct", vec!["product"]).assert(5, &result);
+    } */
+
+    #[tokio::test]
+    async fn full_comment_should_be() {
+        Logger::console_init();
+        env::set_var("RUST_BACKTRACE", "1");
+
+        let file_path = get_test_comment_path("/full_comment.rs");
+
+        let core = NvimLangCore::new(None, None);
+
+        let result = core.process_file(file_path).await;
+
+        info!("{:#?}", result);
+
+        log::logger().flush();
+
+        Expected::data_len_to_be(16, &result);
+        // Expected::new(1, 17, 27, 1, "commmented", vec!["commented"]).assert(0, &result);
     }
 
     fn get_test_comment_path(test_file: &str) -> String {

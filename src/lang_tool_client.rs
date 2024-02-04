@@ -1,4 +1,4 @@
-use log::{error, warn};
+use log::{debug, error, info, warn};
 use reqwest::{Client, StatusCode};
 
 use crate::modules::LangTool;
@@ -56,6 +56,8 @@ impl LangToolClient {
                     warn!("Language Tool response: {}", text);
                     return None;
                 }
+
+                // debug!("TEXT: {}", text);
 
                 //TODO: Need to handler deserializing error
                 let lang_tool: LangTool = serde_json::from_str(&text).unwrap();

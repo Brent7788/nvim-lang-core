@@ -40,4 +40,11 @@ pub struct Context {
 #[allow(dead_code)]
 pub struct Rule {
     id: String,
+    pub category: Category,
+}
+
+#[derive(Deserialize, Debug)]
+#[allow(dead_code)]
+pub struct Category {
+    pub id: String,
 }
