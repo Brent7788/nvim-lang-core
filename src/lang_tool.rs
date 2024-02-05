@@ -134,6 +134,8 @@ impl<'ltc> LangToolCore<'ltc> {
                 None => continue,
             };
 
+            debug!("MATCH COUNT: {}", matches.len());
+
             for lang_match in matches {
                 let context = &lang_match.context;
                 let offset = context.offset;
@@ -141,43 +143,22 @@ impl<'ltc> LangToolCore<'ltc> {
                 let chunk: &str = &context.text[offset..lenth];
 
                 debug!("CHUNk === *{}*{}", chunk, lang_match.sentence);
+
                 if chunk.is_empty() {
                     // TODO: Find better warning message
                     warn!("One of the matches is empty");
                     continue;
                 }
 
-                /*                 let line = comment
-                                   .prog_lines
-                                   .iter()
-                                   .find(|ln| ln.original_line.contains(&lang_match.sentence));
-                */
-                for line in &comment.prog_lines {
-                    /*                     if !line.original_line.contains(chunk) {
-                        continue;
-                    }
-
-                    if !line.original_line.contains(&lang_match.sentence) {
-                        continue;
-                    } */
-
-                    // TODO: Need to check if there is multiple words wrong on the same line
-                    //
-                    /*                     let start_column = match self.find_target_offset(&line.original_line, chunk) {
-                        Some(start_column) => start_column,
-                        None => {
-                            warn!(
-                                "Was unable to get offset off word {} in line {}",
-                                chunk, line.line_number
-                            );
-                            continue;
-                        }
-                    }; */
-
+                for (index, line) in comment.prog_lines.iter().enumerate() {
                     debug!(
                         "OR: {} -{}- {}",
                         line.line_number, chunk, line.original_line,
                     );
+
+                    if !(lang_match.offset <= comment.line_end_offset[index]) {
+                        continue;
+                    }
 
                     let start_columns =
                         LangToolCore::get_target_offsets(&line.original_line, chunk);
@@ -185,10 +166,10 @@ impl<'ltc> LangToolCore<'ltc> {
                     debug!("Columns {:?}", start_columns);
 
                     if start_columns.is_empty() {
-                        /*                         warn!(
+                        warn!(
                             "Was unable to get offset off word {} in line {}",
                             chunk, line.line_number
-                        ); */
+                        );
                         continue;
                     }
 
@@ -208,6 +189,8 @@ impl<'ltc> LangToolCore<'ltc> {
                             data_type: DataType::get_type(&lang_match.rule.category),
                         });
                     }
+
+                    break;
                 }
             }
         }
