@@ -1,195 +1,33 @@
-use log::{debug, warn};
-
-use crate::nvim_lang::NvimLangLineType;
 use crate::{
     lang_tool_client::LangToolClient,
-    modules::{LangTool, Matche},
-    nvim_lang::{NvimLanguageFile, NvimLanguageLine, NvimOptions},
+    modules::LangTool,
     programming_lang::{ProgrammingFile, ProgrammingLine},
 };
 
 #[derive(Debug)]
-pub struct LanguageToolFile<'ltc> {
-    prog_file: &'ltc ProgrammingFile<'ltc>,
-    comments: Vec<Comment<'ltc>>,
+pub struct LanguageToolFile<'ltf> {
+    pub prog_file: &'ltf ProgrammingFile<'ltf>,
+    pub comments: Vec<Comment<'ltf>>,
 }
 
-impl<'ltc> LanguageToolFile<'ltc> {
+impl<'ltf> LanguageToolFile<'ltf> {
     pub async fn new(
-        prog_file: &'ltc ProgrammingFile<'ltc>,
+        prog_file: &'ltf ProgrammingFile<'ltf>,
         client: &LangToolClient,
-    ) -> LanguageToolFile<'ltc> {
+    ) -> LanguageToolFile<'ltf> {
         return LanguageToolFile {
             prog_file,
             comments: Comment::generate(prog_file, client).await,
         };
     }
-
-    pub fn generate_nvim_language_file(&self) -> NvimLanguageFile {
-        let mut nvim_core = NvimLanguageFile {
-            file_path: self.prog_file.file_path.to_owned(),
-            data: Vec::new(),
-        };
-
-        // info!("{:#?}", self);
-
-        for comment in &self.comments {
-            // debug!("COMMENT = {:#?}", comment);
-
-            let matches: &Vec<Matche> = match comment.lang_tool {
-                Some(ref lang_tool) => {
-                    if lang_tool.matches.is_empty() {
-                        continue;
-                    }
-
-                    &lang_tool.matches
-                }
-                None => continue,
-            };
-
-            debug!("MATCH COUNT: {}", matches.len());
-
-            for lang_match in matches {
-                let context = &lang_match.context;
-                let offset = context.offset;
-                let lenth = context.offset + context.length;
-                let chunk: &str = &context.text[offset..lenth];
-
-                // debug!("CHUNk === *{}*{}", chunk, lang_match.sentence);
-
-                if chunk.is_empty() {
-                    // TODO: Find better warning message
-                    warn!("One of the matches is empty");
-                    continue;
-                }
-
-                for (index, line) in comment.prog_lines.iter().enumerate() {
-                    /*                     debug!(
-                                           "OR: {} -{}- {}",
-                                           line.line_number, chunk, line.original_line,
-                                       );
-                    */
-                    // TODO: Need to test this with long indenting
-                    if !(lang_match.offset <= comment.line_end_offset[index]) {
-                        continue;
-                    }
-
-                    let start_columns =
-                        LanguageToolFile::get_target_offsets(&line.original_line, chunk);
-
-                    // debug!("Columns {:?}", start_columns);
-
-                    if start_columns.is_empty() {
-                        warn!(
-                            "Was unable to get offset off word {} in line {}",
-                            chunk, line.line_number
-                        );
-                        continue;
-                    }
-
-                    // TODO: Need to check for duplicates
-                    for start_column in start_columns {
-                        nvim_core.data.push(NvimLanguageLine {
-                            line_number: line.line_number,
-                            start_column,
-                            end_column: start_column + context.length,
-                            options: NvimOptions {
-                                original: chunk.to_owned(),
-                                options: lang_match
-                                    .replacements
-                                    .iter()
-                                    .map(|r| r.value.clone())
-                                    .collect(), // TODO: There should be max limit on the options!
-                            },
-                            data_type: NvimLangLineType::get_type(&lang_match.rule.category),
-                        });
-                    }
-
-                    break;
-                }
-            }
-        }
-
-        return nvim_core;
-    }
-
-    const ALPHABET: &[char] = &[
-        'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r',
-        's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
-        'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-    ];
-
-    fn is_first_char_part_of_alpb(sen: &str) -> bool {
-        if sen.is_empty() {
-            return false;
-        }
-
-        let first_char = &(sen.as_bytes()[0] as char);
-
-        for alpb in LanguageToolFile::ALPHABET {
-            if alpb == first_char {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    fn is_not_valid_offset(input_indext: usize, input: &Vec<&str>) -> bool {
-        //INFO: The last input offset is always invalid
-        if input_indext == input.len() - 1 {
-            return true;
-        }
-
-        let before_index = input_indext as isize - 1;
-        let after_index = input_indext + 1;
-
-        if before_index == -1 {
-            return LanguageToolFile::is_first_char_part_of_alpb(input[after_index]);
-        }
-
-        if after_index == input.len() {
-            return LanguageToolFile::is_first_char_part_of_alpb(input[before_index as usize]);
-        }
-
-        return LanguageToolFile::is_first_char_part_of_alpb(input[before_index as usize])
-            || LanguageToolFile::is_first_char_part_of_alpb(input[after_index]);
-    }
-
-    fn get_target_offsets(input_string: &str, target: &str) -> Vec<usize> {
-        let input_collection: Vec<&str> = input_string.split(target).collect();
-        let mut offsets: Vec<usize> = Vec::new();
-
-        if input_collection.is_empty() || input_collection.len() == 1 {
-            return offsets;
-        }
-
-        let mut current_offset: usize = 0;
-
-        for (index, input) in input_collection.iter().enumerate() {
-            current_offset += (*input).len();
-
-            if index > 0 {
-                current_offset += target.len();
-            }
-
-            if LanguageToolFile::is_not_valid_offset(index, &input_collection) {
-                continue;
-            }
-
-            offsets.push(current_offset);
-        }
-
-        return offsets;
-    }
 }
 
 #[derive(Debug)]
-struct Comment<'c> {
-    prog_lines: Vec<&'c ProgrammingLine>,
-    line_end_offset: Vec<usize>,
-    comment: String,
-    lang_tool: Option<LangTool>,
+pub struct Comment<'c> {
+    pub prog_lines: Vec<&'c ProgrammingLine>,
+    pub line_end_offset: Vec<usize>,
+    pub comment: String,
+    pub lang_tool: Option<LangTool>,
 }
 
 impl<'c> Comment<'c> {
@@ -225,7 +63,7 @@ impl<'c> Comment<'c> {
 
             comment.prog_lines.push(prog_line);
 
-            // info!("WHAT COMMENT: {:#?}", comment);
+            // info!("COMMENT: {:#?}", comment);
         }
 
         if comment.prog_lines.len() > 0 {
@@ -268,5 +106,34 @@ impl<'c> Comment<'c> {
         }
 
         return false;
+    }
+}
+
+#[derive(Debug)]
+pub struct Code {
+    pub prog_line: ProgrammingLine,
+    pub processed_code_line: String,
+    pub lang_tool: Option<LangTool>,
+}
+
+impl Code {
+    fn generate<'pl>(prog_file: &'pl ProgrammingFile<'pl>, client: &LangToolClient) -> Vec<Code> {
+        let mut code_line: Vec<Code> = Vec::new();
+
+        for prog_line in &prog_file.lines {
+            if !Code::is_code_line(prog_line) {
+                continue;
+            }
+        }
+
+        return code_line;
+    }
+
+    fn is_code_line(prog_line: &ProgrammingLine) -> bool {
+        return match prog_line.prog_type {
+            crate::programming_lang::ProgrammingLineType::Code => true,
+            crate::programming_lang::ProgrammingLineType::CodeWithComment => true,
+            _ => false,
+        };
     }
 }
