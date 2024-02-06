@@ -1,119 +1,32 @@
-use std::{fmt, isize};
+use log::{debug, warn};
 
-use log::{debug, info, warn};
-
+use crate::nvim_lang::NvimLangLineType;
 use crate::{
     lang_tool_client::LangToolClient,
-    modules::{Category, LangTool, Matche},
+    modules::{LangTool, Matche},
+    nvim_lang::{NvimLanguageFile, NvimLanguageLine, NvimOptions},
     programming_lang::{ProgrammingFile, ProgrammingLine},
 };
 
-//TODO: Find better name
 #[derive(Debug)]
-pub struct NvimLangCoreData {
-    pub file_path: String,
-    pub data: Vec<Data>,
-}
-
-impl NvimLangCoreData {
-    pub fn new() -> Self {
-        return NvimLangCoreData {
-            file_path: String::new(),
-            data: Vec::new(),
-        };
-    }
-
-    pub fn is_empty(&self) -> bool {
-        return self.file_path.is_empty() || self.data.is_empty();
-    }
-}
-
-//TODO: Find better name
-#[derive(Debug)]
-pub struct Data {
-    pub line_number: usize,
-    pub start_column: usize,
-    pub end_column: usize,
-    pub options: Options,
-    pub data_type: DataType,
-}
-
-#[derive(Debug)]
-pub struct Options {
-    pub original: String,
-    pub options: Vec<String>,
-}
-
-//TODO: Find better name
-#[derive(Debug)]
-pub enum DataType {
-    Typos,
-    Punctuation,
-    ConfusedWords,
-    Redundancy,
-    Casing,
-    Grammar,
-    Misc,
-    Semantics,
-    Other,
-}
-
-impl DataType {
-    fn get_type(cat: &Category) -> DataType {
-        return match cat.id.as_str() {
-            "TYPOS" => DataType::Typos,
-            "PUNCTUATION" => DataType::Punctuation,
-            "CONFUSED_WORDS" => DataType::ConfusedWords,
-            "REDUNDANCY" => DataType::Redundancy,
-            "CASING" => DataType::Casing,
-            "GRAMMAR" => DataType::Grammar,
-            "MISC" => DataType::Misc,
-            "SEMANTICS" => DataType::Semantics,
-            _ => DataType::Other,
-        };
-    }
-}
-
-//TODO: Should remove this code!
-impl fmt::Display for DataType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let data_type = match self {
-            DataType::Typos => "TYPOS",
-            DataType::Punctuation => "PUNCTUATION",
-            DataType::ConfusedWords => "CONFUSED_WORDS",
-            DataType::Redundancy => "REDUNDANCY",
-            DataType::Casing => "CASING",
-            DataType::Grammar => "GRAMMAR",
-            DataType::Misc => "MISC",
-            DataType::Semantics => "SEMANTICS",
-            DataType::Other => "OTHER",
-        };
-
-        return write!(f, "{}", data_type);
-    }
-}
-
-//TODO: Find better name
-#[derive(Debug)]
-pub struct LangToolCore<'ltc> {
+pub struct LanguageToolFile<'ltc> {
     prog_file: &'ltc ProgrammingFile<'ltc>,
     comments: Vec<Comment<'ltc>>,
 }
 
-impl<'ltc> LangToolCore<'ltc> {
+impl<'ltc> LanguageToolFile<'ltc> {
     pub async fn new(
         prog_file: &'ltc ProgrammingFile<'ltc>,
         client: &LangToolClient,
-    ) -> LangToolCore<'ltc> {
-        return LangToolCore {
+    ) -> LanguageToolFile<'ltc> {
+        return LanguageToolFile {
             prog_file,
             comments: Comment::generate(prog_file, client).await,
         };
     }
 
-    //TODO: Find better name
-    pub fn get_data(&self) -> NvimLangCoreData {
-        let mut nvim_core = NvimLangCoreData {
+    pub fn generate_nvim_language_file(&self) -> NvimLanguageFile {
+        let mut nvim_core = NvimLanguageFile {
             file_path: self.prog_file.file_path.to_owned(),
             data: Vec::new(),
         };
@@ -121,7 +34,7 @@ impl<'ltc> LangToolCore<'ltc> {
         // info!("{:#?}", self);
 
         for comment in &self.comments {
-            debug!("COMMENT = {:#?}", comment);
+            // debug!("COMMENT = {:#?}", comment);
 
             let matches: &Vec<Matche> = match comment.lang_tool {
                 Some(ref lang_tool) => {
@@ -142,7 +55,7 @@ impl<'ltc> LangToolCore<'ltc> {
                 let lenth = context.offset + context.length;
                 let chunk: &str = &context.text[offset..lenth];
 
-                debug!("CHUNk === *{}*{}", chunk, lang_match.sentence);
+                // debug!("CHUNk === *{}*{}", chunk, lang_match.sentence);
 
                 if chunk.is_empty() {
                     // TODO: Find better warning message
@@ -151,19 +64,20 @@ impl<'ltc> LangToolCore<'ltc> {
                 }
 
                 for (index, line) in comment.prog_lines.iter().enumerate() {
-                    debug!(
-                        "OR: {} -{}- {}",
-                        line.line_number, chunk, line.original_line,
-                    );
-
+                    /*                     debug!(
+                                           "OR: {} -{}- {}",
+                                           line.line_number, chunk, line.original_line,
+                                       );
+                    */
+                    // TODO: Need to test this with long indenting
                     if !(lang_match.offset <= comment.line_end_offset[index]) {
                         continue;
                     }
 
                     let start_columns =
-                        LangToolCore::get_target_offsets(&line.original_line, chunk);
+                        LanguageToolFile::get_target_offsets(&line.original_line, chunk);
 
-                    debug!("Columns {:?}", start_columns);
+                    // debug!("Columns {:?}", start_columns);
 
                     if start_columns.is_empty() {
                         warn!(
@@ -173,12 +87,13 @@ impl<'ltc> LangToolCore<'ltc> {
                         continue;
                     }
 
+                    // TODO: Need to check for duplicates
                     for start_column in start_columns {
-                        nvim_core.data.push(Data {
+                        nvim_core.data.push(NvimLanguageLine {
                             line_number: line.line_number,
                             start_column,
                             end_column: start_column + context.length,
-                            options: Options {
+                            options: NvimOptions {
                                 original: chunk.to_owned(),
                                 options: lang_match
                                     .replacements
@@ -186,7 +101,7 @@ impl<'ltc> LangToolCore<'ltc> {
                                     .map(|r| r.value.clone())
                                     .collect(), // TODO: There should be max limit on the options!
                             },
-                            data_type: DataType::get_type(&lang_match.rule.category),
+                            data_type: NvimLangLineType::get_type(&lang_match.rule.category),
                         });
                     }
 
@@ -211,7 +126,7 @@ impl<'ltc> LangToolCore<'ltc> {
 
         let first_char = &(sen.as_bytes()[0] as char);
 
-        for alpb in LangToolCore::ALPHABET {
+        for alpb in LanguageToolFile::ALPHABET {
             if alpb == first_char {
                 return true;
             }
@@ -230,19 +145,17 @@ impl<'ltc> LangToolCore<'ltc> {
         let after_index = input_indext + 1;
 
         if before_index == -1 {
-            return LangToolCore::is_first_char_part_of_alpb(input[after_index]);
+            return LanguageToolFile::is_first_char_part_of_alpb(input[after_index]);
         }
 
         if after_index == input.len() {
-            return LangToolCore::is_first_char_part_of_alpb(input[before_index as usize]);
+            return LanguageToolFile::is_first_char_part_of_alpb(input[before_index as usize]);
         }
 
-        return LangToolCore::is_first_char_part_of_alpb(input[before_index as usize])
-            || LangToolCore::is_first_char_part_of_alpb(input[after_index]);
+        return LanguageToolFile::is_first_char_part_of_alpb(input[before_index as usize])
+            || LanguageToolFile::is_first_char_part_of_alpb(input[after_index]);
     }
 
-    //BUG: This is not good enough. The Language Tool will return a sentence with offset.
-    //     Use the offset in the sentence to get the before and after word for match.
     fn get_target_offsets(input_string: &str, target: &str) -> Vec<usize> {
         let input_collection: Vec<&str> = input_string.split(target).collect();
         let mut offsets: Vec<usize> = Vec::new();
@@ -260,7 +173,7 @@ impl<'ltc> LangToolCore<'ltc> {
                 current_offset += target.len();
             }
 
-            if LangToolCore::is_not_valid_offset(index, &input_collection) {
+            if LanguageToolFile::is_not_valid_offset(index, &input_collection) {
                 continue;
             }
 
@@ -274,7 +187,7 @@ impl<'ltc> LangToolCore<'ltc> {
 #[derive(Debug)]
 struct Comment<'c> {
     prog_lines: Vec<&'c ProgrammingLine>,
-    line_end_offset: Vec<usize>, // TODO: This is not being used.
+    line_end_offset: Vec<usize>,
     comment: String,
     lang_tool: Option<LangTool>,
 }
@@ -343,7 +256,7 @@ impl<'c> Comment<'c> {
             None => &0,
         };
 
-        let offset = prog_line.original_line.len() - 1 + last_line_end_offset;
+        let offset = prog_line.get_comment().len() + last_line_end_offset;
 
         self.line_end_offset.push(offset);
     }
