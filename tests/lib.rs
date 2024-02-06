@@ -1,4 +1,4 @@
-use nvim_lang_core::lang_tool::NvimLangCoreData;
+use nvim_lang_core::nvim_lang::NvimLanguageFile;
 
 #[derive(Debug)]
 struct Expected<'r> {
@@ -22,12 +22,12 @@ impl<'r> Expected<'r> {
         };
     }
 
-    fn data_len_to_be(len: usize, result: &NvimLangCoreData) {
+    fn data_len_to_be(len: usize, result: &NvimLanguageFile) {
         assert_eq!(false, result.is_empty());
         assert_eq!(len, result.data.len());
     }
 
-    fn assert(&self, data_index: usize, result: &NvimLangCoreData) {
+    fn assert(&self, data_index: usize, result: &NvimLanguageFile) {
         let result = &result.data[data_index];
 
         assert_eq!(self.ln, result.line_number);
@@ -45,7 +45,6 @@ impl<'r> Expected<'r> {
 pub mod tests {
     use std::env;
 
-    use log::info;
     use nvim_lang_core::{common::logger::Logger, nvim_lang_core::NvimLangCore};
 
     use crate::Expected;
@@ -124,7 +123,7 @@ pub mod tests {
 
         let result = core.process_file(file_path).await;
 
-        info!("{:#?}", result);
+        // info!("{:#?}", result);
 
         log::logger().flush();
 
