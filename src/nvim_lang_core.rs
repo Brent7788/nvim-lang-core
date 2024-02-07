@@ -37,14 +37,11 @@ impl<'lang> NvimLangCore<'lang> {
             }
         };
 
-        let mut prog_file = ProgrammingFile::new(&file_path, &lang);
+        let prog_file = ProgrammingFile::create(&file_path, &lang);
 
-        prog_file.process_lines();
+        let lang_tool_file = LanguageToolFile::new(&prog_file, &self.lang_tool_client).await;
 
-        let lang_tool_core = LanguageToolFile::new(&prog_file, &self.lang_tool_client).await;
-
-        let n = lang_tool_core.generate_nvim_language_file();
-        return n;
+        return NvimLanguageFile::create(&lang_tool_file);
     }
 
     fn get_file_type(&self, file_path: &String) -> Option<&ProgrammingLanguage> {

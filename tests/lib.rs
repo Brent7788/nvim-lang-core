@@ -24,11 +24,11 @@ impl<'r> Expected<'r> {
 
     fn data_len_to_be(len: usize, result: &NvimLanguageFile) {
         assert_eq!(false, result.is_empty());
-        assert_eq!(len, result.data.len());
+        assert_eq!(len, result.nvim_lang_lines.len());
     }
 
     fn assert(&self, data_index: usize, result: &NvimLanguageFile) {
-        let result = &result.data[data_index];
+        let result = &result.nvim_lang_lines[data_index];
 
         assert_eq!(self.ln, result.line_number);
         assert_eq!(self.sc, result.start_column);
