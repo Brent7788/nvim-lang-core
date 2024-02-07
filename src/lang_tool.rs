@@ -110,23 +110,48 @@ impl<'c> Comment<'c> {
 }
 
 #[derive(Debug)]
-pub struct Code {
-    pub prog_line: ProgrammingLine,
+pub struct Code<'c> {
+    pub prog_line: &'c ProgrammingLine,
     pub processed_code_line: String,
     pub lang_tool: Option<LangTool>,
 }
 
-impl Code {
-    fn generate<'pl>(prog_file: &'pl ProgrammingFile<'pl>, client: &LangToolClient) -> Vec<Code> {
-        let mut code_line: Vec<Code> = Vec::new();
+impl<'c> Code<'c> {
+    async fn generate<'pl>(
+        prog_file: &'pl ProgrammingFile<'pl>,
+        client: &LangToolClient,
+    ) -> Vec<Code<'pl>> {
+        let mut code_lines: Vec<Code> = Vec::new();
 
         for prog_line in &prog_file.lines {
             if !Code::is_code_line(prog_line) {
                 continue;
             }
+
+            let mut code = Code {
+                prog_line,
+                processed_code_line: prog_file
+                    .lang
+                    .replase_all_sytex_with_empty_space(prog_line.get_code()),
+                lang_tool: None,
+            };
+
+            let code_line_split = code.processed_code_line.split_whitespace();
+            let mut n = String::new();
+            for code_chunk in code_line_split {
+                if code_chunk.is_empty() {
+                    continue;
+                }
+
+                n += code_chunk;
+            }
+
+            code.processed_code_line = n;
+            code.lang_tool = client.get_lang_tool(&code.processed_code_line).await;
+            code_lines.push(code);
         }
 
-        return code_line;
+        return code_lines;
     }
 
     fn is_code_line(prog_line: &ProgrammingLine) -> bool {
