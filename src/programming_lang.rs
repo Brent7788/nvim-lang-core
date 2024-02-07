@@ -26,24 +26,27 @@ pub enum ProgrammingLineType {
     Unknown,
 }
 
-// TODO: Find better name
 #[derive(Debug)]
 pub struct ProgrammingLanguage<'lang> {
     pub extension: &'lang str,
     comment_delimiter: &'lang str,
     block_comment_delimiter_start: &'lang str,
     block_comment_delimiter_end: &'lang str,
+    string_syntax: [char; 1],
+    syntax: Vec<&'lang str>,
     lang_type: ProgrammingLanguageType,
 }
 
 impl<'lang> ProgrammingLanguage<'lang> {
-    pub const fn init() -> [ProgrammingLanguage<'lang>; 2] {
+    pub fn init() -> [ProgrammingLanguage<'lang>; 2] {
         return [
             ProgrammingLanguage {
                 extension: ".lua",
                 comment_delimiter: "--",
                 block_comment_delimiter_start: "",
                 block_comment_delimiter_end: "",
+                string_syntax: ['"'],
+                syntax: vec![],
                 lang_type: ProgrammingLanguageType::Lua,
             },
             ProgrammingLanguage {
@@ -51,13 +54,31 @@ impl<'lang> ProgrammingLanguage<'lang> {
                 comment_delimiter: "//",
                 block_comment_delimiter_start: "/*",
                 block_comment_delimiter_end: "*/",
+                string_syntax: ['"'],
+                syntax: vec![
+                    "as", "async", "await", "break", "const", "continue", "crate", "dyn", "else",
+                    "enum", "extern", "false", "fn", "for", "if", "impl", "in", "let", "loop",
+                    "match", "mod", "move", "mut", "pub", "ref", "return", "Self", "self",
+                    "static", "struct", "super", "trait", "true", "type", "unsafe", "use", "where",
+                    "while", "+", "-", "*", "/", "%", "=", "!", ">", "<", "&", "^", "/=", "%=",
+                    "(", ")", "{", "}", "[", "]", ";", ":", ",", "..", ".",
+                ],
                 lang_type: ProgrammingLanguageType::Rust,
             },
         ];
     }
+
+    pub fn replase_all_sytex_with_empty_space(&self, input: &str) -> String {
+        let mut transform = String::from(input);
+
+        for snt in &self.syntax {
+            transform = transform.replace(snt, "");
+        }
+
+        return transform;
+    }
 }
 
-// TODO: Find better name
 #[derive(Debug)]
 pub struct ProgrammingFile<'pf> {
     pub file_path: &'pf str,
@@ -66,15 +87,19 @@ pub struct ProgrammingFile<'pf> {
 }
 
 impl<'pf> ProgrammingFile<'pf> {
-    pub fn new(file_path: &'pf str, lang: &'pf ProgrammingLanguage) -> Self {
-        return ProgrammingFile {
+    pub fn create(file_path: &'pf str, lang: &'pf ProgrammingLanguage) -> Self {
+        let mut prog_file = ProgrammingFile {
             file_path,
             lines: Vec::new(),
             lang,
         };
+
+        prog_file.generate_line();
+
+        return prog_file;
     }
 
-    pub fn process_lines(&mut self) {
+    fn generate_line(&mut self) {
         let file_result = File::open(self.file_path);
 
         let file = match file_result {
@@ -240,6 +265,13 @@ impl ProgrammingLine {
     pub fn get_comment(&self) -> &str {
         return match self.commented_line {
             Some(cmt) => unsafe { &*cmt },
+            None => "",
+        };
+    }
+
+    pub fn get_code(&self) -> &str {
+        return match self.code_line {
+            Some(code_ln) => unsafe { &*code_ln },
             None => "",
         };
     }
