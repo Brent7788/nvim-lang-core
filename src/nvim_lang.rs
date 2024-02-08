@@ -25,8 +25,6 @@ impl NvimLanguageFile {
             nvim_lang_lines: Vec::new(),
         };
 
-        // info!("{:#?}", self);
-
         for comment in &lang_tool_file.comments {
             // debug!("COMMENT = {:#?}", comment);
 

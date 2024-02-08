@@ -1,3 +1,5 @@
+use log::debug;
+
 use crate::{
     lang_tool_client::LangToolClient,
     modules::LangTool,
@@ -8,6 +10,7 @@ use crate::{
 pub struct LanguageToolFile<'ltf> {
     pub prog_file: &'ltf ProgrammingFile<'ltf>,
     pub comments: Vec<Comment<'ltf>>,
+    pub code: Vec<Code<'ltf>>,
 }
 
 impl<'ltf> LanguageToolFile<'ltf> {
@@ -18,6 +21,7 @@ impl<'ltf> LanguageToolFile<'ltf> {
         return LanguageToolFile {
             prog_file,
             comments: Comment::generate(prog_file, client).await,
+            code: Code::generate(prog_file, client).await,
         };
     }
 }
@@ -137,19 +141,21 @@ impl<'c> Code<'c> {
             };
 
             let code_line_split = code.processed_code_line.split_whitespace();
-            let mut n = String::new();
+            let mut processed_code_line = String::new();
             for code_chunk in code_line_split {
                 if code_chunk.is_empty() {
                     continue;
                 }
 
-                n += code_chunk;
+                processed_code_line = processed_code_line + " " + code_chunk;
             }
 
-            code.processed_code_line = n;
+            code.processed_code_line = processed_code_line;
             code.lang_tool = client.get_lang_tool(&code.processed_code_line).await;
             code_lines.push(code);
         }
+
+        debug!("CODE: {:#?}", code_lines);
 
         return code_lines;
     }

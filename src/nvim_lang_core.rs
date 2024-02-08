@@ -1,4 +1,4 @@
-use log::warn;
+use log::{debug, warn};
 
 use crate::lang_tool::LanguageToolFile;
 use crate::lang_tool_client::LangToolClient;
@@ -40,6 +40,8 @@ impl<'lang> NvimLangCore<'lang> {
         let prog_file = ProgrammingFile::create(&file_path, &lang);
 
         let lang_tool_file = LanguageToolFile::new(&prog_file, &self.lang_tool_client).await;
+
+        debug!("LANG FILE: {:#?}", lang_tool_file.code);
 
         return NvimLanguageFile::create(&lang_tool_file);
     }
