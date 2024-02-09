@@ -101,11 +101,67 @@ impl NvimLanguageFile {
             }
         }
 
+        nvim_core.process_code(lang_tool_file);
+
         return nvim_core;
     }
 
     pub fn is_empty(&self) -> bool {
         return self.file_path.is_empty() || self.nvim_lang_lines.is_empty();
+    }
+
+    // TODO: Find better name
+    fn process_code(&mut self, lang_tool_file: &LanguageToolFile) {
+        for code_line in &lang_tool_file.code {
+            let matches: &Vec<Matche> = match code_line.lang_tool {
+                Some(ref lang_tool) => {
+                    if lang_tool.matches.is_empty() {
+                        continue;
+                    }
+
+                    &lang_tool.matches
+                }
+                None => continue,
+            };
+
+            for lang_match in matches {
+                let context = &lang_match.context;
+                let offset = context.offset;
+                let lenth = context.offset + context.length;
+                let chunk: &str = &context.text[offset..lenth];
+
+                let line = code_line.prog_line;
+                let start_columns = get_target_offsets(&line.original_line, chunk);
+
+                // debug!("Columns {:?}", start_columns);
+
+                if start_columns.is_empty() {
+                    warn!(
+                        "Was unable to get offset off word {} in line {}",
+                        chunk, line.line_number
+                    );
+                    continue;
+                }
+
+                // TODO: Need to check for duplicates
+                for start_column in start_columns {
+                    self.nvim_lang_lines.push(NvimLanguageLine {
+                        line_number: line.line_number,
+                        start_column,
+                        end_column: start_column + context.length,
+                        options: NvimOptions {
+                            original: chunk.to_owned(),
+                            options: lang_match
+                                .replacements
+                                .iter()
+                                .map(|r| r.value.clone())
+                                .collect(), // TODO: There should be max limit on the options!
+                        },
+                        data_type: NvimLangLineType::get_type(&lang_match.rule.category),
+                    });
+                }
+            }
+        }
     }
 }
 
