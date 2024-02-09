@@ -136,14 +136,21 @@ impl<'c> Code<'c> {
                 prog_line,
                 processed_code_line: prog_file
                     .lang
-                    .replase_all_sytex_with_empty_space(prog_line.get_code()),
+                    .replase_all_operators_and_syntax_with_whitespace(prog_line.get_code()),
                 lang_tool: None,
             };
 
             let code_line_split = code.processed_code_line.split_whitespace();
             let mut processed_code_line = String::new();
             for code_chunk in code_line_split {
-                if code_chunk.is_empty() {
+                let code_chunk = code_chunk.trim();
+
+                if code_chunk.is_empty() || prog_file.lang.is_reserved_keyword(code_chunk) {
+                    continue;
+                }
+
+                if processed_code_line.is_empty() {
+                    processed_code_line = "ignorecase ".to_owned() + code_chunk;
                     continue;
                 }
 

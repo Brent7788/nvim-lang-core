@@ -32,8 +32,9 @@ pub struct ProgrammingLanguage<'lang> {
     comment_delimiter: &'lang str,
     block_comment_delimiter_start: &'lang str,
     block_comment_delimiter_end: &'lang str,
+    operators_and_syntax: Vec<&'lang str>,
+    reserved_keywords: Vec<&'lang str>,
     string_syntax: [char; 1],
-    syntax: Vec<&'lang str>,
     lang_type: ProgrammingLanguageType,
 }
 
@@ -46,7 +47,8 @@ impl<'lang> ProgrammingLanguage<'lang> {
                 block_comment_delimiter_start: "",
                 block_comment_delimiter_end: "",
                 string_syntax: ['"'],
-                syntax: vec![],
+                reserved_keywords: vec![],
+                operators_and_syntax: vec![],
                 lang_type: ProgrammingLanguageType::Lua,
             },
             ProgrammingLanguage {
@@ -55,24 +57,37 @@ impl<'lang> ProgrammingLanguage<'lang> {
                 block_comment_delimiter_start: "/*",
                 block_comment_delimiter_end: "*/",
                 string_syntax: ['"'],
-                syntax: vec![
+                reserved_keywords: vec![
                     "as", "async", "await", "break", "const", "continue", "crate", "dyn", "else",
                     "enum", "extern", "false", "fn", "for", "if", "impl", "in", "let", "loop",
                     "match", "mod", "move", "mut", "pub", "ref", "return", "Self", "self",
                     "static", "struct", "super", "trait", "true", "type", "unsafe", "use", "where",
-                    "while", "+", "-", "*", "/", "%", "=", "!", ">", "<", "&", "^", "/=", "%=",
-                    "(", ")", "{", "}", "[", "]", ";", ":", ",", "..", ".",
+                    "while",
+                ],
+                operators_and_syntax: vec![
+                    "+", "-", "*", "/", "%", "=", "!", ">", "<", "&", "^", "/=", "%=", "(", ")",
+                    "{", "}", "[", "]", ";", ":", ",", "..", ".",
                 ],
                 lang_type: ProgrammingLanguageType::Rust,
             },
         ];
     }
 
-    pub fn replase_all_sytex_with_empty_space(&self, input: &str) -> String {
+    pub fn is_reserved_keyword(&self, input: &str) -> bool {
+        for reserved_keyword in &self.reserved_keywords {
+            if input == *reserved_keyword {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    pub fn replase_all_operators_and_syntax_with_whitespace(&self, input: &str) -> String {
         let mut transform = String::from(input);
 
-        for snt in &self.syntax {
-            transform = transform.replace(snt, "");
+        for op_snt in &self.operators_and_syntax {
+            transform = transform.replace(op_snt, " ");
         }
 
         return transform;

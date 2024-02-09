@@ -1,1 +1,1 @@
-pub fn proccess(prduct: String) {}
+pub fn upercase(prduct: String) {}
