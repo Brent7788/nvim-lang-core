@@ -1,6 +1,7 @@
 use log::{debug, warn};
 
 use crate::{
+    common::{LOWER_CASE_ALPHABET, UPPER_CASE_ALPHABET},
     lang_tool::LanguageToolFile,
     modules::{Category, Matche},
 };
@@ -124,7 +125,16 @@ impl NvimLanguageFile {
                 None => continue,
             };
 
+            debug!("CODE LINE:{:#?}", code_line.prog_line);
+
             for lang_match in matches {
+                if !matches!(
+                    NvimLangLineType::get_type(&lang_match.rule.category),
+                    NvimLangLineType::Typos
+                ) {
+                    continue;
+                }
+
                 let context = &lang_match.context;
                 let offset = context.offset;
                 let lenth = context.offset + context.length;
@@ -190,6 +200,7 @@ pub enum NvimLangLineType {
     Grammar,
     Misc,
     Semantics,
+    Typograph,
     Other,
 }
 
@@ -204,16 +215,11 @@ impl NvimLangLineType {
             "GRAMMAR" => NvimLangLineType::Grammar,
             "MISC" => NvimLangLineType::Misc,
             "SEMANTICS" => NvimLangLineType::Semantics,
+            "TYPOGRAPHY" => NvimLangLineType::Typograph,
             _ => NvimLangLineType::Other,
         };
     }
 }
-
-const ALPHABET: &[char] = &[
-    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
-    't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L',
-    'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-];
 
 fn is_first_char_part_of_alpb(sen: &str) -> bool {
     if sen.is_empty() {
@@ -222,7 +228,13 @@ fn is_first_char_part_of_alpb(sen: &str) -> bool {
 
     let first_char = &(sen.as_bytes()[0] as char);
 
-    for alpb in ALPHABET {
+    for alpb in LOWER_CASE_ALPHABET {
+        if alpb == first_char {
+            return true;
+        }
+    }
+
+    for alpb in UPPER_CASE_ALPHABET {
         if alpb == first_char {
             return true;
         }
