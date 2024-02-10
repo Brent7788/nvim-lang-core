@@ -1,11 +1,16 @@
 use std::{
+    char,
     collections::hash_map::DefaultHasher,
     fs::File,
     hash::{Hash, Hasher},
     io::{BufRead, BufReader},
+    ops::Add,
+    str::from_utf8_unchecked,
 };
 
 use log::{error, info, warn};
+
+use crate::common::UPPER_CASE_ALPHABET;
 
 #[derive(Debug)]
 pub enum ProgrammingLanguageType {
@@ -27,6 +32,13 @@ pub enum ProgrammingLineType {
 }
 
 #[derive(Debug)]
+pub enum NamingConvetionType {
+    CamelCase,
+    PascalCase,
+    None,
+}
+
+#[derive(Debug)]
 pub struct ProgrammingLanguage<'lang> {
     pub extension: &'lang str,
     comment_delimiter: &'lang str,
@@ -35,6 +47,7 @@ pub struct ProgrammingLanguage<'lang> {
     operators_and_syntax: Vec<&'lang str>,
     reserved_keywords: Vec<&'lang str>,
     string_syntax: [char; 1],
+    naming_convetions: [NamingConvetionType; 2],
     lang_type: ProgrammingLanguageType,
 }
 
@@ -49,6 +62,7 @@ impl<'lang> ProgrammingLanguage<'lang> {
                 string_syntax: ['"'],
                 reserved_keywords: vec![],
                 operators_and_syntax: vec![],
+                naming_convetions: [NamingConvetionType::None, NamingConvetionType::None],
                 lang_type: ProgrammingLanguageType::Lua,
             },
             ProgrammingLanguage {
@@ -68,6 +82,7 @@ impl<'lang> ProgrammingLanguage<'lang> {
                     "+", "-", "*", "/", "%", "=", "!", ">", "<", "&", "^", "/=", "%=", "(", ")",
                     "{", "}", "[", "]", ";", ":", ",", "..", ".",
                 ],
+                naming_convetions: [NamingConvetionType::PascalCase, NamingConvetionType::None],
                 lang_type: ProgrammingLanguageType::Rust,
             },
         ];
@@ -91,6 +106,52 @@ impl<'lang> ProgrammingLanguage<'lang> {
         }
 
         return transform;
+    }
+
+    // WARN: This might not work on utf16 strings!
+    pub fn split_by_naming_conventions(&self, input: &str) -> String {
+        const LOWERCASE_UTF8: &[u8] = b"abcdefghijklmnopqrstuvwxyz";
+        const UPPERCASE_UTF8: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        let mut output = String::new();
+
+        let input_bytes = input.as_bytes();
+        let mut current_index: usize = 0;
+        let mut start_index: usize = 0;
+        let mut is_first_uppercase = true;
+
+        for input_byte in input_bytes {
+            for up_alp in UPPERCASE_UTF8 {
+                if input_byte == up_alp && is_first_uppercase {
+                    start_index = current_index;
+                    is_first_uppercase = false;
+                    break;
+                }
+
+                if input_byte == up_alp {
+                    let l = &input_bytes[start_index..current_index];
+                    let k = unsafe { from_utf8_unchecked(l) };
+                    output.push(' ');
+                    output.push_str(k);
+                    start_index = current_index;
+                    break;
+                }
+            }
+
+            current_index += 1;
+        }
+
+        if start_index < current_index {
+            let l = &input_bytes[start_index..current_index];
+            let k = unsafe { from_utf8_unchecked(l) };
+            output.push(' ');
+            output.push_str(k);
+        }
+
+        if output.is_empty() {
+            return String::from(input);
+        }
+
+        return output.to_ascii_lowercase();
     }
 }
 

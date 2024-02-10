@@ -149,20 +149,26 @@ impl<'c> Code<'c> {
                     continue;
                 }
 
+                let code_chunk = &prog_file.lang.split_by_naming_conventions(code_chunk);
+
+                // debug!("L: {}", code_chunk);
+
+                //Attach Ignore in front of the code to ignore casing
                 if processed_code_line.is_empty() {
-                    processed_code_line = "ignorecase ".to_owned() + code_chunk;
+                    processed_code_line = "Ignore ".to_owned() + code_chunk;
                     continue;
                 }
 
                 processed_code_line = processed_code_line + " " + code_chunk;
             }
 
+            // debug!("PROC: {}", processed_code_line);
             code.processed_code_line = processed_code_line;
             code.lang_tool = client.get_lang_tool(&code.processed_code_line).await;
             code_lines.push(code);
         }
 
-        debug!("CODE: {:#?}", code_lines);
+        // debug!("CODE: {:#?}", code_lines);
 
         return code_lines;
     }
