@@ -80,7 +80,7 @@ impl<'lang> ProgrammingLanguage<'lang> {
                 ],
                 operators_and_syntax: vec![
                     "+", "-", "*", "/", "%", "=", "!", ">", "<", "&", "^", "/=", "%=", "(", ")",
-                    "{", "}", "[", "]", ";", ":", ",", "..", ".",
+                    "{", "}", "[", "]", ";", ":", ",", "..", ".", "#",
                 ],
                 naming_convetions: [NamingConvetionType::PascalCase, NamingConvetionType::None],
                 lang_type: ProgrammingLanguageType::Rust,
@@ -151,7 +151,7 @@ impl<'lang> ProgrammingLanguage<'lang> {
             return String::from(input);
         }
 
-        return output.to_ascii_lowercase();
+        return output;
     }
 }
 

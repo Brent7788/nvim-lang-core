@@ -145,13 +145,15 @@ impl<'c> Code<'c> {
             for code_chunk in code_line_split {
                 let code_chunk = code_chunk.trim();
 
+                debug!("***********: {}", code_chunk);
+
                 if code_chunk.is_empty() || prog_file.lang.is_reserved_keyword(code_chunk) {
                     continue;
                 }
 
                 let code_chunk = &prog_file.lang.split_by_naming_conventions(code_chunk);
 
-                // debug!("L: {}", code_chunk);
+                // debug!("NEXT: {code_chunk}");
 
                 //Attach Ignore in front of the code to ignore casing
                 if processed_code_line.is_empty() {
@@ -162,6 +164,7 @@ impl<'c> Code<'c> {
                 processed_code_line = processed_code_line + " " + code_chunk;
             }
 
+            debug!("===------------------------------------------------------NEXT: {processed_code_line}");
             // debug!("PROC: {}", processed_code_line);
             code.processed_code_line = processed_code_line;
             code.lang_tool = client.get_lang_tool(&code.processed_code_line).await;

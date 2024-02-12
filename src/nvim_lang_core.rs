@@ -41,7 +41,7 @@ impl<'lang> NvimLangCore<'lang> {
 
         let lang_tool_file = LanguageToolFile::new(&prog_file, &self.lang_tool_client).await;
 
-        debug!("LANG FILE: {:#?}", lang_tool_file.code);
+        // debug!("LANG FILE: {:#?}", lang_tool_file.code);
 
         return NvimLanguageFile::create(&lang_tool_file);
     }

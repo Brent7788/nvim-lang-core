@@ -125,9 +125,11 @@ impl NvimLanguageFile {
                 None => continue,
             };
 
-            debug!("CODE LINE:{:#?}", code_line.prog_line);
+            // debug!("CODE LINE:{:#?}", code_line.prog_line);
+            // debug!("======================\n:{:#?}", matches);
 
             for lang_match in matches {
+                debug!("{:#?}", lang_match);
                 if !matches!(
                     NvimLangLineType::get_type(&lang_match.rule.category),
                     NvimLangLineType::Typos
@@ -143,11 +145,14 @@ impl NvimLanguageFile {
                 let line = code_line.prog_line;
                 let start_columns = get_target_offsets(&line.original_line, chunk);
 
-                // debug!("Columns {:?}", start_columns);
+                debug!(
+                    "Columns {:?} CHUNk: {}  LINE: {}",
+                    start_columns, chunk, line.original_line
+                );
 
                 if start_columns.is_empty() {
                     warn!(
-                        "Was unable to get offset off word {} in line {}",
+                        "Was unable to get offset off word '{}' in line {}",
                         chunk, line.line_number
                     );
                     continue;
