@@ -113,42 +113,40 @@ impl NvimLanguageFile {
 
     // TODO: Find better name
     fn process_code(&mut self, lang_tool_file: &LanguageToolFile) {
-        for code_line in &lang_tool_file.code {
-            let matches: &Vec<Matche> = match code_line.lang_tool {
-                Some(ref lang_tool) => {
-                    if lang_tool.matches.is_empty() {
-                        continue;
-                    }
-
-                    &lang_tool.matches
-                }
-                None => continue,
-            };
-
-            // debug!("CODE LINE:{:#?}", code_line.prog_line);
-            // debug!("======================\n:{:#?}", matches);
-
-            for lang_match in matches {
-                debug!("{:#?}", lang_match);
-                if !matches!(
-                    NvimLangLineType::get_type(&lang_match.rule.category),
-                    NvimLangLineType::Typos
-                ) {
-                    continue;
+        let matches: &Vec<Matche> = match lang_tool_file.code.lang_tool {
+            Some(ref lang_tool) => {
+                if lang_tool.matches.is_empty() {
+                    return;
                 }
 
-                let context = &lang_match.context;
-                let offset = context.offset;
-                let lenth = context.offset + context.length;
-                let chunk: &str = &context.text[offset..lenth];
+                &lang_tool.matches
+            }
+            None => return,
+        };
 
-                let line = code_line.prog_line;
+        // debug!("CODE LINE:{:#?}", code_line.prog_line);
+        // debug!("======================\n:{:#?}", matches);
+
+        for lang_match in matches {
+            if !matches!(
+                NvimLangLineType::get_type(&lang_match.rule.category),
+                NvimLangLineType::Typos
+            ) {
+                continue;
+            }
+
+            let context = &lang_match.context;
+            let offset = context.offset;
+            let lenth = context.offset + context.length;
+            let chunk: &str = &context.text[offset..lenth];
+
+            for line in &lang_tool_file.code.prog_lines {
                 let start_columns = get_target_offsets(&line.original_line, chunk);
 
-                debug!(
-                    "Columns {:?} CHUNk: {}  LINE: {}",
-                    start_columns, chunk, line.original_line
-                );
+                // debug!(
+                //     "Columns {:?} CHUNk: {}  LINE: {}",
+                //     start_columns, chunk, line.original_line
+                // );
 
                 if start_columns.is_empty() {
                     warn!(
@@ -160,6 +158,14 @@ impl NvimLanguageFile {
 
                 // TODO: Need to check for duplicates
                 for start_column in start_columns {
+                    if self.line_exit(
+                        line.line_number,
+                        start_column,
+                        start_column + context.length,
+                    ) {
+                        continue;
+                    }
+
                     self.nvim_lang_lines.push(NvimLanguageLine {
                         line_number: line.line_number,
                         start_column,
@@ -177,6 +183,19 @@ impl NvimLanguageFile {
                 }
             }
         }
+    }
+
+    fn line_exit(&self, line_number: usize, start_column: usize, end_column: usize) -> bool {
+        for nvim_lang_line in &self.nvim_lang_lines {
+            if nvim_lang_line.line_number == line_number
+                && nvim_lang_line.start_column == start_column
+                && nvim_lang_line.end_column == end_column
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 

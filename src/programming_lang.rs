@@ -109,10 +109,11 @@ impl<'lang> ProgrammingLanguage<'lang> {
     }
 
     // WARN: This might not work on utf16 strings!
-    pub fn split_by_naming_conventions(&self, input: &str) -> String {
+    pub fn split_by_naming_conventions<'i>(&self, input: &'i str) -> String {
         const LOWERCASE_UTF8: &[u8] = b"abcdefghijklmnopqrstuvwxyz";
         const UPPERCASE_UTF8: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         let mut output = String::new();
+        // let mut output: Vec<&str> = Vec::new();
 
         let input_bytes = input.as_bytes();
         let mut current_index: usize = 0;
@@ -132,6 +133,7 @@ impl<'lang> ProgrammingLanguage<'lang> {
                     let k = unsafe { from_utf8_unchecked(l) };
                     output.push(' ');
                     output.push_str(k);
+                    // output.push(k);
                     start_index = current_index;
                     break;
                 }
@@ -145,10 +147,12 @@ impl<'lang> ProgrammingLanguage<'lang> {
             let k = unsafe { from_utf8_unchecked(l) };
             output.push(' ');
             output.push_str(k);
+            // output.push(k);
         }
 
         if output.is_empty() {
             return String::from(input);
+            // output.push(input);
         }
 
         return output;

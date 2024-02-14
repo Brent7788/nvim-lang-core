@@ -10,7 +10,7 @@ use crate::{
 pub struct LanguageToolFile<'ltf> {
     pub prog_file: &'ltf ProgrammingFile<'ltf>,
     pub comments: Vec<Comment<'ltf>>,
-    pub code: Vec<Code<'ltf>>,
+    pub code: Code<'ltf>,
 }
 
 impl<'ltf> LanguageToolFile<'ltf> {
@@ -115,8 +115,8 @@ impl<'c> Comment<'c> {
 
 #[derive(Debug)]
 pub struct Code<'c> {
-    pub prog_line: &'c ProgrammingLine,
-    pub processed_code_line: String,
+    pub prog_lines: Vec<&'c ProgrammingLine>,
+    pub processed_code: String,
     pub lang_tool: Option<LangTool>,
 }
 
@@ -124,56 +124,51 @@ impl<'c> Code<'c> {
     async fn generate<'pl>(
         prog_file: &'pl ProgrammingFile<'pl>,
         client: &LangToolClient,
-    ) -> Vec<Code<'pl>> {
-        let mut code_lines: Vec<Code> = Vec::new();
+    ) -> Code<'pl> {
+        //TODO: Should limit processed char count to 5000, if 5000 create new Code.
+        let mut code = Code {
+            prog_lines: Vec::with_capacity(prog_file.lines.len()),
+            processed_code: String::from("Ignore"),
+            lang_tool: None,
+        };
 
         for prog_line in &prog_file.lines {
             if !Code::is_code_line(prog_line) {
                 continue;
             }
 
-            let mut code = Code {
-                prog_line,
-                processed_code_line: prog_file
-                    .lang
-                    .replase_all_operators_and_syntax_with_whitespace(prog_line.get_code()),
-                lang_tool: None,
-            };
+            let code_line = prog_file
+                .lang
+                .replase_all_operators_and_syntax_with_whitespace(prog_line.get_code());
 
-            let code_line_split = code.processed_code_line.split_whitespace();
-            let mut processed_code_line = String::new();
+            let code_line_split = code_line.split_whitespace();
+            let processed_code_len = code.processed_code.len();
+
             for code_chunk in code_line_split {
                 let code_chunk = code_chunk.trim();
-
-                debug!("***********: {}", code_chunk);
 
                 if code_chunk.is_empty() || prog_file.lang.is_reserved_keyword(code_chunk) {
                     continue;
                 }
 
-                let code_chunk = &prog_file.lang.split_by_naming_conventions(code_chunk);
+                let code_chunk = prog_file.lang.split_by_naming_conventions(code_chunk);
 
-                // debug!("NEXT: {code_chunk}");
-
-                //Attach Ignore in front of the code to ignore casing
-                if processed_code_line.is_empty() {
-                    processed_code_line = "Ignore ".to_owned() + code_chunk;
-                    continue;
-                }
-
-                processed_code_line = processed_code_line + " " + code_chunk;
+                code.processed_code.push_str(" ");
+                code.processed_code.push_str(code_chunk.trim());
             }
 
-            debug!("===------------------------------------------------------NEXT: {processed_code_line}");
-            // debug!("PROC: {}", processed_code_line);
-            code.processed_code_line = processed_code_line;
-            code.lang_tool = client.get_lang_tool(&code.processed_code_line).await;
-            code_lines.push(code);
+            if processed_code_len < code.processed_code.len() {
+                code.prog_lines.push(prog_line);
+            }
         }
 
-        // debug!("CODE: {:#?}", code_lines);
+        // debug!("CODE: {:#?}", code);
 
-        return code_lines;
+        code.lang_tool = client.get_lang_tool(&code.processed_code).await;
+
+        debug!("CODE: {:#?}", code);
+
+        return code;
     }
 
     fn is_code_line(prog_line: &ProgrammingLine) -> bool {
