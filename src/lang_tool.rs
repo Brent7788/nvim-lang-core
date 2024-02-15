@@ -162,6 +162,9 @@ impl<'c> Code<'c> {
             }
         }
 
+        if code.processed_code == "Ignore" {
+            return code;
+        }
         // debug!("CODE: {:#?}", code);
 
         code.lang_tool = client.get_lang_tool(&code.processed_code).await;

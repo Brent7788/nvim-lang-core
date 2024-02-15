@@ -35,7 +35,6 @@ pub mod code_lang_tests {
         Logger::console_init();
         env::set_var("RUST_BACKTRACE", "1");
 
-        info!("###################################################### NEXT TEST");
         let file_path = get_test_code_path("/multiple_code.rs");
 
         let core = NvimLangCore::new(None, None);
