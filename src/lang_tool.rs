@@ -57,7 +57,9 @@ impl<'c> Comment<'c> {
                 comments.push(comment);
                 comment = Comment::new();
                 continue;
-            } else if !Comment::is_line_comment(prog_line) && comment.is_empty() {
+            }
+
+            if !Comment::is_line_comment(prog_line) && comment.is_empty() {
                 continue;
             }
 
@@ -121,11 +123,12 @@ pub struct Code<'c> {
 }
 
 impl<'c> Code<'c> {
+    // TODO: Need to simplify this method
     async fn generate<'pl>(
         prog_file: &'pl ProgrammingFile<'pl>,
         client: &LangToolClient,
     ) -> Code<'pl> {
-        //TODO: Should limit processed char count to 5000, if 5000 create new Code.
+        // TODO: Should limit processed char count to 5000, if 5000 create new Code.
         let mut code = Code {
             prog_lines: Vec::with_capacity(prog_file.lines.len()),
             processed_code: String::from("Ignore"),

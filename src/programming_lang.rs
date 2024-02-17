@@ -4,13 +4,10 @@ use std::{
     fs::File,
     hash::{Hash, Hasher},
     io::{BufRead, BufReader},
-    ops::Add,
     str::from_utf8_unchecked,
 };
 
 use log::{error, info, warn};
-
-use crate::common::UPPER_CASE_ALPHABET;
 
 #[derive(Debug)]
 pub enum ProgrammingLanguageType {
@@ -23,6 +20,8 @@ pub enum ProgrammingLineType {
     NewLine,
     Code,
     CodeWithComment,
+    CodeWithString,
+    CodeWithStringWithComment,
     Comment,
     BlockCommentStart,
     BlockComment,
@@ -46,7 +45,7 @@ pub struct ProgrammingLanguage<'lang> {
     block_comment_delimiter_end: &'lang str,
     operators_and_syntax: Vec<&'lang str>,
     reserved_keywords: Vec<&'lang str>,
-    string_syntax: [char; 1],
+    string_syntax: ProgrammingStringSyntax,
     naming_convetions: [NamingConvetionType; 2],
     lang_type: ProgrammingLanguageType,
 }
@@ -59,7 +58,7 @@ impl<'lang> ProgrammingLanguage<'lang> {
                 comment_delimiter: "--",
                 block_comment_delimiter_start: "",
                 block_comment_delimiter_end: "",
-                string_syntax: ['"'],
+                string_syntax: ProgrammingStringSyntax::default(),
                 reserved_keywords: vec![],
                 operators_and_syntax: vec![],
                 naming_convetions: [NamingConvetionType::None, NamingConvetionType::None],
@@ -70,7 +69,10 @@ impl<'lang> ProgrammingLanguage<'lang> {
                 comment_delimiter: "//",
                 block_comment_delimiter_start: "/*",
                 block_comment_delimiter_end: "*/",
-                string_syntax: ['"'],
+                string_syntax: ProgrammingStringSyntax {
+                    string_separators: [StringSyntax::SyntaxChar('"'), StringSyntax::None],
+                    string_ignore_separators: [StringSyntax::Syntax("\n")],
+                },
                 reserved_keywords: vec![
                     "as", "async", "await", "break", "const", "continue", "crate", "dyn", "else",
                     "enum", "extern", "false", "fn", "for", "if", "impl", "in", "let", "loop",
@@ -110,6 +112,7 @@ impl<'lang> ProgrammingLanguage<'lang> {
 
     // WARN: This might not work on utf16 strings!
     pub fn split_by_naming_conventions<'i>(&self, input: &'i str) -> String {
+        // TODO: Need to remove this const and put it somewhere else.
         const LOWERCASE_UTF8: &[u8] = b"abcdefghijklmnopqrstuvwxyz";
         const UPPERCASE_UTF8: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         let mut output = String::new();
@@ -129,10 +132,10 @@ impl<'lang> ProgrammingLanguage<'lang> {
                 }
 
                 if input_byte == up_alp {
-                    let l = &input_bytes[start_index..current_index];
-                    let k = unsafe { from_utf8_unchecked(l) };
+                    let input_byte_slice = &input_bytes[start_index..current_index];
+                    let utf8_input = unsafe { from_utf8_unchecked(input_byte_slice) };
                     output.push(' ');
-                    output.push_str(k);
+                    output.push_str(utf8_input);
                     // output.push(k);
                     start_index = current_index;
                     break;
@@ -143,10 +146,10 @@ impl<'lang> ProgrammingLanguage<'lang> {
         }
 
         if start_index < current_index {
-            let l = &input_bytes[start_index..current_index];
-            let k = unsafe { from_utf8_unchecked(l) };
+            let input_byte_slice = &input_bytes[start_index..current_index];
+            let utf8_input = unsafe { from_utf8_unchecked(input_byte_slice) };
             output.push(' ');
-            output.push_str(k);
+            output.push_str(utf8_input);
             // output.push(k);
         }
 
@@ -157,6 +160,20 @@ impl<'lang> ProgrammingLanguage<'lang> {
 
         return output;
     }
+}
+
+#[derive(Debug, Default)]
+struct ProgrammingStringSyntax {
+    string_separators: [StringSyntax; 2],
+    string_ignore_separators: [StringSyntax; 1],
+}
+
+#[derive(Debug, Default)]
+enum StringSyntax {
+    Syntax(&'static str),
+    SyntaxChar(char),
+    #[default]
+    None,
 }
 
 #[derive(Debug)]
@@ -209,6 +226,7 @@ impl<'pf> ProgrammingFile<'pf> {
             programming_line.set_if_block_comment();
             programming_line.set_if_code();
             programming_line.set_hash(&mut hasher);
+            // programming_line.test = Some(&programming_line.original_line[2..4]);
 
             self.lines.push(programming_line);
         }
@@ -221,7 +239,6 @@ impl<'pf> ProgrammingFile<'pf> {
     }
 }
 
-// TODO: Find better name
 #[derive(Debug)]
 pub struct ProgrammingLine {
     pub hash: u64,
@@ -267,10 +284,14 @@ impl ProgrammingLine {
         if is_block_cmt_start && is_block_cmt_end {
             self.prog_type = ProgrammingLineType::BlockCommentStartAndEnd;
             return;
-        } else if is_block_cmt_start {
+        }
+
+        if is_block_cmt_start {
             self.prog_type = ProgrammingLineType::BlockCommentStart;
             return;
-        } else if is_block_cmt_end {
+        }
+
+        if is_block_cmt_end {
             self.prog_type = ProgrammingLineType::BlockCommentEnd;
             return;
         }
@@ -285,7 +306,7 @@ impl ProgrammingLine {
             }
         }
 
-        //TODO: Need to use the lang to check it this is really code.
+        //TODO: Need to use the lang to check if this is really code.
         self.prog_type = ProgrammingLineType::Code;
     }
 
@@ -329,6 +350,24 @@ impl ProgrammingLine {
 
         // TODO: The code line need to be transformed
         self.code_line = Some(self.original_line.as_str());
+    }
+
+    fn set_if_contain_strings(&mut self, lang: &ProgrammingLanguage) {
+        match self.prog_type {
+            ProgrammingLineType::Code => (),
+            ProgrammingLineType::CodeWithComment => (),
+            _ => return,
+        }
+
+        /*         for string_seperator in lang.string_syntax.string_separators {
+            let string_seperator = match string_seperator {
+                StringSyntax::Syntax(syntex) => syntex as Pattern,
+                StringSyntax::SyntaxChar(syntax_char) => syntax_char as Pattern,
+                StringSyntax::None => continue,
+            };
+
+            let line_string_option = self.original_line.split_once('k');
+        } */
     }
 
     fn set_hash(&mut self, hasher: &mut DefaultHasher) {
