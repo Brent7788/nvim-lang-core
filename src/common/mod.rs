@@ -1,4 +1,5 @@
 pub mod logger;
+pub mod string;
 pub mod test;
 
 pub const LOWER_CASE_ALPHABET: &[char] = &[

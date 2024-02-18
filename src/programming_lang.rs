@@ -5,9 +5,12 @@ use std::{
     hash::{Hash, Hasher},
     io::{BufRead, BufReader},
     str::from_utf8_unchecked,
+    usize,
 };
 
 use log::{error, info, warn};
+
+use crate::common::string::{StringPosition, StringPositionTrait};
 
 #[derive(Debug)]
 pub enum ProgrammingLanguageType {
@@ -359,15 +362,35 @@ impl ProgrammingLine {
             _ => return,
         }
 
-        /*         for string_seperator in lang.string_syntax.string_separators {
+        for string_seperator in &lang.string_syntax.string_separators {
             let string_seperator = match string_seperator {
-                StringSyntax::Syntax(syntex) => syntex as Pattern,
-                StringSyntax::SyntaxChar(syntax_char) => syntax_char as Pattern,
+                StringSyntax::Syntax(_) => continue,
+                StringSyntax::SyntaxChar(syntax_char) => *syntax_char as u8,
                 StringSyntax::None => continue,
             };
 
-            let line_string_option = self.original_line.split_once('k');
-        } */
+            // let line_bytes = self.original_line.as_bytes();
+            // let mut line_index: usize = 0;
+            // let mut string_positions: [Option<StringPosition>; 8] =
+            //     StringPosition::empty_positions();
+            //
+            // let mut current_str_pos: Option<StringPosition> = None;
+            // for line_byte in line_bytes {
+            //     if line_byte == &string_seperator && matches!(current_str_pos, None) {
+            //         current_str_pos = Some(StringPosition {
+            //             start_index: line_index,
+            //             end_index: 0,
+            //         })
+            //     } else if line_byte == &string_seperator && !matches!(current_str_pos, None) {
+            //         if let Some(str_pos) = &mut current_str_pos {
+            //             str_pos.end_index = line_index;
+            //             string_positions.push_str_pos(current_str_pos);
+            //         }
+            //     }
+            //
+            //     line_index += 1;
+            // }
+        }
     }
 
     fn set_hash(&mut self, hasher: &mut DefaultHasher) {
