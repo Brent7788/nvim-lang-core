@@ -1,4 +1,6 @@
-#[derive(Clone, Copy)]
+use log::{debug, info};
+
+#[derive(Debug, Clone, Copy)]
 pub struct StringPosition {
     pub start_index: usize,
     pub end_index: usize,
@@ -19,12 +21,12 @@ impl StringPosition {
         };
     }
 
-    fn set_start_index_if_char(&mut self, index: usize, str_byte: &u8, delimiter: &DelimiterType) {
+    fn try_set_start_index(&mut self, index: usize, str_bytes: &[u8], delimiter: &DelimiterType) {
         if !matches!(self.state, StringPositionState::Empty) {
             return;
         }
 
-        if delimiter.is_char_not_equal(*str_byte) {
+        if delimiter != (index, str_bytes) {
             return;
         }
 
@@ -32,52 +34,21 @@ impl StringPosition {
         self.state = StringPositionState::StartIndexSetted;
     }
 
-    fn set_start_index_if_str(
-        &mut self,
-        index: usize,
-        str_bytes: &[u8],
-        delimiter: &DelimiterType,
-    ) {
-        if !matches!(self.state, StringPositionState::Empty) {
+    fn try_set_end_index(&mut self, index: usize, str_bytes: &[u8], delimiter: &DelimiterType) {
+        if !matches!(self.state, StringPositionState::SettingEndIndex) {
             return;
         }
 
-        if delimiter.is_not_equal(index, str_bytes) {
+        if delimiter != (index, str_bytes) {
             return;
         }
 
-        self.start_index = index;
-        self.state = StringPositionState::StartIndexSetted;
-    }
-
-    fn set_end_index_if_char(&mut self, index: usize, str_byte: &u8, delimiter: &DelimiterType) {
-        if !matches!(self.state, StringPositionState::StartIndexSetted) {
-            return;
-        }
-
-        if delimiter.is_char_not_equal(*str_byte) {
-            return;
-        }
-
-        self.end_index = index;
-        self.state = StringPositionState::StartAndEndIndexSetted;
-    }
-
-    fn set_end_index_if_str(&mut self, index: usize, str_bytes: &[u8], delimiter: &DelimiterType) {
-        if !matches!(self.state, StringPositionState::StartIndexSetted) {
-            return;
-        }
-
-        if delimiter.is_not_equal(index, str_bytes) {
-            return;
-        }
-
-        self.end_index = index;
+        self.end_index = index + 1;
         self.state = StringPositionState::StartAndEndIndexSetted;
     }
 
     fn set_end_index(&mut self, index: usize) {
-        if !matches!(self.state, StringPositionState::StartIndexSetted) {
+        if !matches!(self.state, StringPositionState::SettingEndIndex) {
             return;
         }
 
@@ -86,15 +57,17 @@ impl StringPosition {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 enum StringPositionState {
     Empty,
     StartIndexSetted,
+    SettingEndIndex,
     StartAndEndIndexSetted,
 }
 
 pub trait StringPositionTrait<const N: usize> {
     fn push_str_pos(&mut self, current_str_pos: StringPosition);
+    fn as_vec_str(self, s: &String) -> [Option<&str>; N];
 }
 
 impl<const N: usize> StringPositionTrait<N> for [Option<StringPosition>; N] {
@@ -105,61 +78,78 @@ impl<const N: usize> StringPositionTrait<N> for [Option<StringPosition>; N] {
             }
 
             *str_pos = Some(current_str_pos);
+            break;
         }
+    }
+
+    fn as_vec_str(self, s: &String) -> [Option<&str>; N] {
+        let mut strs: [Option<&str>; N] = [None; N];
+        let mut index = 0;
+
+        while index < self.len() {
+            if let Some(str_pos) = self[index] {
+                strs[index] = Some(&s[str_pos.start_index..str_pos.end_index]);
+            } else {
+                break;
+            }
+
+            index += 1;
+        }
+
+        return strs;
     }
 }
 
+#[derive(Debug)]
 pub enum DelimiterType<'dt> {
     DelimiterStr(&'dt str),
     DelimiterChar(char),
     None,
 }
 
-impl<'dt> DelimiterType<'dt> {
-    pub fn is_char_not_equal(&self, str_byte: u8) -> bool {
-        let delimiter = match self {
-            DelimiterType::DelimiterChar(delimiter) => *delimiter as u8,
-            _ => return true,
-        };
-
-        if str_byte != delimiter {
-            return true;
-        }
-
-        return false;
+impl<'dt> PartialEq<(usize, &[u8])> for &DelimiterType<'dt> {
+    fn eq(&self, other: &(usize, &[u8])) -> bool {
+        self.is_equal(other.0, other.1)
     }
 
-    pub fn is_not_equal(&self, index: usize, str_bytes: &[u8]) -> bool {
-        return match self {
-            DelimiterType::DelimiterStr(dlm_str) => test(index, str_bytes, dlm_str.as_bytes()),
-            DelimiterType::DelimiterChar(dlm_char) => str_bytes[index] != (*dlm_char as u8),
-            DelimiterType::None => true,
-        };
+    fn ne(&self, other: &(usize, &[u8])) -> bool {
+        !self.eq(other)
     }
 }
 
-//TODO: Change fn name
-fn test(index: usize, str_bytes: &[u8], delimiter: &[u8]) -> bool {
-    let str_bytes = &str_bytes[index..];
-
-    if str_bytes.len() < delimiter.len() {
-        return true;
+impl<'dt> DelimiterType<'dt> {
+    fn is_equal(&self, index: usize, str_bytes: &[u8]) -> bool {
+        return match self {
+            DelimiterType::DelimiterStr(dlm_str) => {
+                DelimiterType::is_dlm_str_equal(index, str_bytes, dlm_str.as_bytes())
+            }
+            DelimiterType::DelimiterChar(dlm_char) => str_bytes[index] == (*dlm_char as u8),
+            DelimiterType::None => true,
+        };
     }
 
-    let mut dlm_index = 0;
-    let mut matched = false;
+    fn is_dlm_str_equal(index: usize, str_bytes: &[u8], delimiter: &[u8]) -> bool {
+        let str_bytes = &str_bytes[index..];
 
-    while dlm_index < delimiter.len() {
-        if str_bytes[dlm_index] == delimiter[dlm_index] {
-            matched = true;
-        } else {
-            matched = false;
+        if str_bytes.len() < delimiter.len() {
+            return false;
         }
 
-        dlm_index += 1;
-    }
+        let mut dlm_index = 0;
+        let mut matched = false;
 
-    return !matched;
+        while dlm_index < delimiter.len() {
+            if str_bytes[dlm_index] == delimiter[dlm_index] {
+                matched = true;
+            } else {
+                matched = false;
+            }
+
+            dlm_index += 1;
+        }
+
+        return matched;
+    }
 }
 
 pub trait StringDelimiterSlice<const S: usize, const D: usize> {
@@ -167,7 +157,7 @@ pub trait StringDelimiterSlice<const S: usize, const D: usize> {
         &self,
         delimiter: &DelimiterType,
         ignore_by_delimiters: &[DelimiterType; D],
-    ) -> &[&str; S];
+    ) -> [Option<&str>; S];
 }
 
 impl<const S: usize, const D: usize> StringDelimiterSlice<S, D> for String {
@@ -175,22 +165,25 @@ impl<const S: usize, const D: usize> StringDelimiterSlice<S, D> for String {
         &self,
         delimiter: &DelimiterType,
         ignore_by_delimiters: &[DelimiterType; D],
-    ) -> &[&str; S] {
+    ) -> [Option<&str>; S] {
+        debug!("{:#?}---{}", delimiter, self);
         let string_bytes = self.as_bytes();
         let mut index = 0;
-        let mut string_positions: [Option<StringPosition>; 8] = StringPosition::empty_positions();
+        let mut string_positions: [Option<StringPosition>; S] = StringPosition::empty_positions();
 
         let mut current_str_pos = StringPosition::new_empty();
 
-        for str_byte in string_bytes {
-            current_str_pos.set_start_index_if_char(index, str_byte, delimiter);
-            current_str_pos.set_start_index_if_str(index, string_bytes, delimiter);
-
+        while index < string_bytes.len() {
             //TODO: Need to ignore bytes here
 
-            current_str_pos.set_end_index_if_char(index, str_byte, delimiter);
-            current_str_pos.set_end_index_if_str(index, string_bytes, delimiter);
+            current_str_pos.try_set_start_index(index, string_bytes, delimiter);
+            current_str_pos.try_set_end_index(index, string_bytes, delimiter);
+
             index += 1;
+
+            if matches!(current_str_pos.state, StringPositionState::StartIndexSetted) {
+                current_str_pos.state = StringPositionState::SettingEndIndex;
+            }
 
             if index == string_bytes.len() {
                 current_str_pos.set_end_index(index);
@@ -205,8 +198,8 @@ impl<const S: usize, const D: usize> StringDelimiterSlice<S, D> for String {
             }
         }
 
-        //TODO: Need to deconstruct string_positions here
+        debug!("{:#?}", string_positions);
 
-        return &[""; S];
+        return string_positions.as_vec_str(self);
     }
 }
