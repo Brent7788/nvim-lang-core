@@ -10,7 +10,9 @@ use std::{
 
 use log::{error, info, warn};
 
-use crate::common::string::{StringPosition, StringPositionTrait};
+use crate::common::string::{
+    DelimiterType, StringDelimiterSlice, StringPosition, StringPositionTrait,
+};
 
 #[derive(Debug)]
 pub enum ProgrammingLanguageType {
@@ -48,7 +50,7 @@ pub struct ProgrammingLanguage<'lang> {
     block_comment_delimiter_end: &'lang str,
     operators_and_syntax: Vec<&'lang str>,
     reserved_keywords: Vec<&'lang str>,
-    string_syntax: ProgrammingStringSyntax,
+    string_syntax: [ProgrammingStringSyntax; 1],
     naming_convetions: [NamingConvetionType; 2],
     lang_type: ProgrammingLanguageType,
 }
@@ -61,7 +63,7 @@ impl<'lang> ProgrammingLanguage<'lang> {
                 comment_delimiter: "--",
                 block_comment_delimiter_start: "",
                 block_comment_delimiter_end: "",
-                string_syntax: ProgrammingStringSyntax::default(),
+                string_syntax: [ProgrammingStringSyntax::default()],
                 reserved_keywords: vec![],
                 operators_and_syntax: vec![],
                 naming_convetions: [NamingConvetionType::None, NamingConvetionType::None],
@@ -72,10 +74,13 @@ impl<'lang> ProgrammingLanguage<'lang> {
                 comment_delimiter: "//",
                 block_comment_delimiter_start: "/*",
                 block_comment_delimiter_end: "*/",
-                string_syntax: ProgrammingStringSyntax {
-                    string_separators: [StringSyntax::SyntaxChar('"'), StringSyntax::None],
-                    string_ignore_separators: [StringSyntax::Syntax("\n")],
-                },
+                string_syntax: [ProgrammingStringSyntax {
+                    string_delimiter: DelimiterType::DelimiterChar('"'),
+                    string_ignore_delimiter: [
+                        DelimiterType::DelimiterStr("\\\""),
+                        DelimiterType::None,
+                    ],
+                }],
                 reserved_keywords: vec![
                     "as", "async", "await", "break", "const", "continue", "crate", "dyn", "else",
                     "enum", "extern", "false", "fn", "for", "if", "impl", "in", "let", "loop",
@@ -167,16 +172,8 @@ impl<'lang> ProgrammingLanguage<'lang> {
 
 #[derive(Debug, Default)]
 struct ProgrammingStringSyntax {
-    string_separators: [StringSyntax; 2],
-    string_ignore_separators: [StringSyntax; 1],
-}
-
-#[derive(Debug, Default)]
-enum StringSyntax {
-    Syntax(&'static str),
-    SyntaxChar(char),
-    #[default]
-    None,
+    string_delimiter: DelimiterType,
+    string_ignore_delimiter: [DelimiterType; 2],
 }
 
 #[derive(Debug)]
@@ -228,8 +225,8 @@ impl<'pf> ProgrammingFile<'pf> {
             programming_line.set_if_comment(self.lang);
             programming_line.set_if_block_comment();
             programming_line.set_if_code();
+            programming_line.set_if_contain_strings(self.lang);
             programming_line.set_hash(&mut hasher);
-            // programming_line.test = Some(&programming_line.original_line[2..4]);
 
             self.lines.push(programming_line);
         }
@@ -249,6 +246,7 @@ pub struct ProgrammingLine {
     pub original_line: String,
     pub commented_line: Option<*const str>,
     pub code_line: Option<*const str>,
+    pub string_line: [Option<*const str>; 4], //TODO: Might need to change to pointer
     pub prog_type: ProgrammingLineType,
 }
 
@@ -260,6 +258,7 @@ impl ProgrammingLine {
             original_line,
             commented_line: None,
             code_line: None,
+            string_line: [None; 4],
             prog_type: ProgrammingLineType::Unknown,
         };
     }
@@ -362,34 +361,24 @@ impl ProgrammingLine {
             _ => return,
         }
 
-        for string_seperator in &lang.string_syntax.string_separators {
-            let string_seperator = match string_seperator {
-                StringSyntax::Syntax(_) => continue,
-                StringSyntax::SyntaxChar(syntax_char) => *syntax_char as u8,
-                StringSyntax::None => continue,
-            };
+        // TODO: Need to determinant what string delimiter to use
+        let string_syntax = &lang.string_syntax[0];
 
-            // let line_bytes = self.original_line.as_bytes();
-            // let mut line_index: usize = 0;
-            // let mut string_positions: [Option<StringPosition>; 8] =
-            //     StringPosition::empty_positions();
-            //
-            // let mut current_str_pos: Option<StringPosition> = None;
-            // for line_byte in line_bytes {
-            //     if line_byte == &string_seperator && matches!(current_str_pos, None) {
-            //         current_str_pos = Some(StringPosition {
-            //             start_index: line_index,
-            //             end_index: 0,
-            //         })
-            //     } else if line_byte == &string_seperator && !matches!(current_str_pos, None) {
-            //         if let Some(str_pos) = &mut current_str_pos {
-            //             str_pos.end_index = line_index;
-            //             string_positions.push_str_pos(current_str_pos);
-            //         }
-            //     }
-            //
-            //     line_index += 1;
-            // }
+        let string_line_slices: [Option<&str>; 4] = self.original_line.slices_by(
+            &string_syntax.string_delimiter,
+            &string_syntax.string_ignore_delimiter,
+        );
+
+        let mut index = 0;
+
+        while index < self.string_line.len() {
+            if matches!(string_line_slices[index], None) {
+                break;
+            }
+
+            self.string_line[index] = Some(string_line_slices[index].unwrap());
+
+            index += 1;
         }
     }
 

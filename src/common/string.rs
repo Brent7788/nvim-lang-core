@@ -109,14 +109,15 @@ impl<const N: usize> StringPositionTrait<N> for [Option<StringPosition>; N] {
     }
 }
 
-#[derive(Debug)]
-pub enum DelimiterType<'dt> {
-    DelimiterStr(&'dt str),
+#[derive(Debug, Default)]
+pub enum DelimiterType {
+    DelimiterStr(&'static str),
     DelimiterChar(char),
+    #[default]
     None,
 }
 
-impl<'dt> PartialEq<(usize, &[u8])> for &DelimiterType<'dt> {
+impl PartialEq<(usize, &[u8])> for &DelimiterType {
     fn eq(&self, other: &(usize, &[u8])) -> bool {
         self.is_equal(other.0, other.1)
     }
@@ -126,7 +127,7 @@ impl<'dt> PartialEq<(usize, &[u8])> for &DelimiterType<'dt> {
     }
 }
 
-impl<'dt> DelimiterType<'dt> {
+impl DelimiterType {
     fn is_equal(&self, index: usize, str_bytes: &[u8]) -> bool {
         return match self {
             DelimiterType::DelimiterStr(dlm_str) => {
