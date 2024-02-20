@@ -10,23 +10,155 @@ pub mod common_tests {
 
     #[test]
     fn simple_string_slices_by_should_be() {
-        Logger::console_init();
         env::set_var("RUST_BACKTRACE", "1");
 
         let n = String::from("var x = 'This should be simple.';");
 
-        info!("{:?}", n);
         let n_slices: [Option<&str>; 2] =
             n.slices_by(&DelimiterType::DelimiterChar('\''), &[DelimiterType::None]);
-
-        info!("{:?}", n_slices);
-
-        log::logger().flush();
 
         assert_ne!(None, n_slices[0]);
 
         if let Some(s) = n_slices[0] {
-            assert_eq!("'This should be simple.'", s);
+            assert_eq!("This should be simple.", s);
+        }
+
+        let n_slices: [Option<&str>; 2] =
+            n.slices_by(&DelimiterType::DelimiterStr("'"), &[DelimiterType::None]);
+
+        assert_ne!(None, n_slices[0]);
+
+        if let Some(s) = n_slices[0] {
+            assert_eq!("This should be simple.", s);
+        }
+    }
+
+    #[test]
+    fn simple_string_slices_by_str_dlm_should_be() {
+        let n = String::from("var x = *--*This should be simple.*--*;");
+
+        let n_slices: [Option<&str>; 2] =
+            n.slices_by(&DelimiterType::DelimiterStr("*--*"), &[DelimiterType::None]);
+
+        assert_ne!(None, n_slices[0]);
+
+        if let Some(s) = n_slices[0] {
+            assert_eq!("This should be simple.", s);
+        }
+    }
+
+    #[test]
+    fn empty_string_slice_by_should_be() {
+        let n = String::from("var x = 8;");
+
+        let n_slices: [Option<&str>; 2] =
+            n.slices_by(&DelimiterType::DelimiterChar('\''), &[DelimiterType::None]);
+
+        assert_eq!(None, n_slices[0]);
+        assert_eq!(None, n_slices[1]);
+    }
+
+    #[test]
+    fn multiple_string_slice_by_should_be() {
+        let n = String::from("var x = 'This should be simple.'; print('This is print text');");
+
+        let n_slices: [Option<&str>; 2] =
+            n.slices_by(&DelimiterType::DelimiterChar('\''), &[DelimiterType::None]);
+
+        assert_ne!(None, n_slices[0]);
+        assert_ne!(None, n_slices[1]);
+
+        if let Some(s) = n_slices[0] {
+            assert_eq!("This should be simple.", s);
+        }
+
+        if let Some(s) = n_slices[1] {
+            assert_eq!("This is print text", s);
+        }
+
+        let n_slices: [Option<&str>; 2] =
+            n.slices_by(&DelimiterType::DelimiterStr("'"), &[DelimiterType::None]);
+
+        assert_ne!(None, n_slices[0]);
+        assert_ne!(None, n_slices[1]);
+
+        if let Some(s) = n_slices[0] {
+            assert_eq!("This should be simple.", s);
+        }
+
+        if let Some(s) = n_slices[1] {
+            assert_eq!("This is print text", s);
+        }
+    }
+
+    #[test]
+    fn half_string_slices_by_should_be() {
+        let n = String::from("var x = '\"This should be simple.\"; print(\"This is print text\");");
+
+        let n_slices: [Option<&str>; 1] =
+            n.slices_by(&DelimiterType::DelimiterChar('\''), &[DelimiterType::None]);
+
+        if let Some(s) = n_slices[0] {
+            assert_eq!(
+                "\"This should be simple.\"; print(\"This is print text\");",
+                s
+            );
+        }
+    }
+
+    #[test]
+    fn string_slices_by_with_ignore_dlm_should_be() {
+        let n = String::from(
+            "var x = -This is term command(rm -f --no), that will remove everything.-;",
+        );
+
+        let n_slices: [Option<&str>; 2] = n.slices_by(
+            &DelimiterType::DelimiterChar('-'),
+            &[
+                DelimiterType::DelimiterStr("-f"),
+                DelimiterType::DelimiterStr("--"),
+            ],
+        );
+
+        assert_ne!(None, n_slices[0]);
+
+        if let Some(s) = n_slices[0] {
+            assert_eq!(
+                "This is term command(rm -f --no), that will remove everything.",
+                s
+            );
+        }
+
+        let n = String::from("var x = -This is term command(rm -f --no)---;");
+
+        let n_slices: [Option<&str>; 2] = n.slices_by(
+            &DelimiterType::DelimiterChar('-'),
+            &[
+                DelimiterType::DelimiterStr("-f"),
+                DelimiterType::DelimiterStr("--"),
+            ],
+        );
+
+        assert_ne!(None, n_slices[0]);
+
+        if let Some(s) = n_slices[0] {
+            assert_eq!("This is term command(rm -f --no)--", s);
+        }
+
+        let n = String::from("var x = --This is --%term command(rm -f -no)---;");
+
+        let n_slices: [Option<&str>; 2] = n.slices_by(
+            &DelimiterType::DelimiterStr("--"),
+            &[
+                DelimiterType::DelimiterStr(")-"),
+                DelimiterType::DelimiterStr("--%"),
+            ],
+        );
+
+        assert_ne!(None, n_slices[0]);
+
+        if let Some(s) = n_slices[0] {
+            assert_eq!("This is --%term command(rm -f -no)-", s);
         }
     }
 }
