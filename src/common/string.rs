@@ -21,7 +21,12 @@ impl StringPosition {
         };
     }
 
-    fn try_set_start_index(&mut self, index: usize, str_bytes: &[u8], delimiter: &DelimiterType) {
+    fn try_set_start_index(
+        &mut self,
+        mut index: usize,
+        str_bytes: &[u8],
+        delimiter: &DelimiterType,
+    ) {
         if !matches!(self.state, StringPositionState::Empty) {
             return;
         }
@@ -30,7 +35,11 @@ impl StringPosition {
             return;
         }
 
-        self.start_index = index;
+        if let DelimiterType::DelimiterStr(dlm_str) = delimiter {
+            index = index + dlm_str.len() - 1;
+        }
+
+        self.start_index = index + 1;
         self.state = StringPositionState::StartIndexSetted;
     }
 
@@ -43,7 +52,7 @@ impl StringPosition {
             return;
         }
 
-        self.end_index = index + 1;
+        self.end_index = index;
         self.state = StringPositionState::StartAndEndIndexSetted;
     }
 
@@ -124,7 +133,7 @@ impl<'dt> DelimiterType<'dt> {
                 DelimiterType::is_dlm_str_equal(index, str_bytes, dlm_str.as_bytes())
             }
             DelimiterType::DelimiterChar(dlm_char) => str_bytes[index] == (*dlm_char as u8),
-            DelimiterType::None => true,
+            DelimiterType::None => false,
         };
     }
 
@@ -143,6 +152,7 @@ impl<'dt> DelimiterType<'dt> {
                 matched = true;
             } else {
                 matched = false;
+                break;
             }
 
             dlm_index += 1;
@@ -166,15 +176,24 @@ impl<const S: usize, const D: usize> StringDelimiterSlice<S, D> for String {
         delimiter: &DelimiterType,
         ignore_by_delimiters: &[DelimiterType; D],
     ) -> [Option<&str>; S] {
-        debug!("{:#?}---{}", delimiter, self);
         let string_bytes = self.as_bytes();
         let mut index = 0;
         let mut string_positions: [Option<StringPosition>; S] = StringPosition::empty_positions();
 
         let mut current_str_pos = StringPosition::new_empty();
 
-        while index < string_bytes.len() {
-            //TODO: Need to ignore bytes here
+        'string_bytes_loop: while index < string_bytes.len() {
+            // TODO: Put ignore part into a function/method
+            for dlm in ignore_by_delimiters {
+                if dlm == (index, string_bytes) {
+                    if let DelimiterType::DelimiterStr(dlm_str) = dlm {
+                        index = index + dlm_str.len() - 1;
+                    }
+
+                    index += 1;
+                    continue 'string_bytes_loop;
+                }
+            }
 
             current_str_pos.try_set_start_index(index, string_bytes, delimiter);
             current_str_pos.try_set_end_index(index, string_bytes, delimiter);
@@ -197,8 +216,6 @@ impl<const S: usize, const D: usize> StringDelimiterSlice<S, D> for String {
                 current_str_pos = StringPosition::new_empty();
             }
         }
-
-        debug!("{:#?}", string_positions);
 
         return string_positions.as_vec_str(self);
     }
