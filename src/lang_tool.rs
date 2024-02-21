@@ -11,6 +11,7 @@ pub struct LanguageToolFile<'ltf> {
     pub prog_file: &'ltf ProgrammingFile<'ltf>,
     pub comments: Vec<Comment<'ltf>>,
     pub code: Code<'ltf>,
+    pub code_strings: Vec<CodeString<'ltf>>,
 }
 
 impl<'ltf> LanguageToolFile<'ltf> {
@@ -22,6 +23,7 @@ impl<'ltf> LanguageToolFile<'ltf> {
             prog_file,
             comments: Comment::generate(prog_file, client).await,
             code: Code::generate(prog_file, client).await,
+            code_strings: CodeString::generate(prog_file, client).await,
         };
     }
 }
@@ -181,6 +183,29 @@ impl<'c> Code<'c> {
         return match prog_line.prog_type {
             crate::programming_lang::ProgrammingLineType::Code => true,
             crate::programming_lang::ProgrammingLineType::CodeWithComment => true,
+            _ => false,
+        };
+    }
+}
+
+#[derive(Debug)]
+pub struct CodeString<'cs> {
+    pub prog_lines: &'cs ProgrammingLine,
+    pub lang_tool: Option<LangTool>,
+}
+
+impl<'cs> CodeString<'cs> {
+    async fn generate(
+        prog_file: &'cs ProgrammingFile<'cs>,
+        client: &LangToolClient,
+    ) -> Vec<CodeString<'cs>> {
+        unimplemented!();
+    }
+
+    fn is_code_string_line(prog_line: &ProgrammingLine) -> bool {
+        return match prog_line.prog_type {
+            crate::programming_lang::ProgrammingLineType::CodeWithString => true,
+            crate::programming_lang::ProgrammingLineType::CodeWithStringWithComment => true,
             _ => false,
         };
     }

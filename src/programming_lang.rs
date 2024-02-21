@@ -246,7 +246,7 @@ pub struct ProgrammingLine {
     pub original_line: String,
     pub commented_line: Option<*const str>,
     pub code_line: Option<*const str>,
-    pub string_line: [Option<*const str>; 4], //TODO: Might need to change to pointer
+    pub string_line: [Option<*const str>; 4],
     pub prog_type: ProgrammingLineType,
 }
 
@@ -379,6 +379,16 @@ impl ProgrammingLine {
             self.string_line[index] = Some(string_line_slices[index].unwrap());
 
             index += 1;
+        }
+
+        if !matches!(self.string_line[0], None) {
+            match self.prog_type {
+                ProgrammingLineType::Code => self.prog_type = ProgrammingLineType::CodeWithString,
+                ProgrammingLineType::CodeWithComment => {
+                    self.prog_type = ProgrammingLineType::CodeWithStringWithComment
+                }
+                _ => (),
+            }
         }
     }
 

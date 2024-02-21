@@ -20,6 +20,7 @@ impl NvimLanguageFile {
         };
     }
 
+    // TODO: Need to simplify this method
     pub fn create(lang_tool_file: &LanguageToolFile) -> NvimLanguageFile {
         let mut nvim_core = NvimLanguageFile {
             file_path: lang_tool_file.prog_file.file_path.to_owned(),
@@ -111,6 +112,7 @@ impl NvimLanguageFile {
         return self.file_path.is_empty() || self.nvim_lang_lines.is_empty();
     }
 
+    // TODO: Need to simplify this method
     // TODO: Find better name
     fn process_code(&mut self, lang_tool_file: &LanguageToolFile) {
         let matches: &Vec<Matche> = match lang_tool_file.code.lang_tool {
