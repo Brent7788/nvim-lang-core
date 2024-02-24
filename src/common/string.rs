@@ -221,3 +221,18 @@ impl<const S: usize, const D: usize> StringDelimiterSlice<S, D> for String {
         return string_positions.as_vec_str(self);
     }
 }
+
+pub trait StrPointer<'sp> {
+    fn as_str(self) -> &'sp str;
+}
+
+impl<'sp> StrPointer<'sp> for *const str {
+    fn as_str(self) -> &'sp str {
+        let str_opt = unsafe { self.as_ref() };
+
+        return match str_opt {
+            Some(str_p) => str_p,
+            None => "",
+        };
+    }
+}
