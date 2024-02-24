@@ -11,7 +11,7 @@ use std::{
 use log::{error, info, warn};
 
 use crate::common::string::{
-    DelimiterType, StringDelimiterSlice, StringPosition, StringPositionTrait,
+    DelimiterType, StrPointer, StringDelimiterSlice, StringPosition, StringPositionTrait,
 };
 
 #[derive(Debug)]
@@ -405,14 +405,14 @@ impl ProgrammingLine {
 
     pub fn get_comment(&self) -> &str {
         return match self.commented_line {
-            Some(cmt) => unsafe { &*cmt },
+            Some(cmt) => cmt.as_str(),
             None => "",
         };
     }
 
     pub fn get_code(&self) -> &str {
         return match self.code_line {
-            Some(code_ln) => unsafe { &*code_ln },
+            Some(code_ln) => code_ln.as_str(),
             None => "",
         };
     }

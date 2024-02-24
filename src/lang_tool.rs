@@ -1,6 +1,7 @@
 use log::debug;
 
 use crate::{
+    common::string::StrPointer,
     lang_tool_client::LangToolClient,
     modules::LangTool,
     programming_lang::{ProgrammingFile, ProgrammingLine},
@@ -174,7 +175,7 @@ impl<'c> Code<'c> {
 
         code.lang_tool = client.get_lang_tool(&code.processed_code).await;
 
-        debug!("CODE: {:#?}", code);
+        // debug!("CODE: {:#?}", code);
 
         return code;
     }
@@ -199,7 +200,31 @@ impl<'cs> CodeString<'cs> {
         prog_file: &'cs ProgrammingFile<'cs>,
         client: &LangToolClient,
     ) -> Vec<CodeString<'cs>> {
-        unimplemented!();
+        let mut code_strings: Vec<CodeString> = vec![];
+
+        for line in &prog_file.lines {
+            if !CodeString::is_code_string_line(line) {
+                continue;
+            }
+
+            for str_line_opt in &line.string_line {
+                let str_line = match str_line_opt {
+                    Some(str_line) => str_line.as_str(),
+                    None => break,
+                };
+
+                if str_line.is_empty() {
+                    continue;
+                }
+
+                code_strings.push(CodeString {
+                    prog_lines: line,
+                    lang_tool: client.get_lang_tool(str_line).await,
+                });
+            }
+        }
+
+        return code_strings;
     }
 
     fn is_code_string_line(prog_line: &ProgrammingLine) -> bool {
