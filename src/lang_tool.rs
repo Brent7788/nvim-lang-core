@@ -3,9 +3,40 @@ use log::debug;
 use crate::{
     common::string::StrPointer,
     lang_tool_client::LangToolClient,
-    modules::LangTool,
+    modules::{Context, LangTool, Matche},
     programming_lang::{ProgrammingFile, ProgrammingLine},
 };
+
+pub trait LangToolTrait {
+    fn get_matches(&self) -> Option<&Vec<Matche>>;
+}
+
+impl LangToolTrait for Option<LangTool> {
+    fn get_matches(&self) -> Option<&Vec<Matche>> {
+        return match self {
+            Some(ref lang_tool) => {
+                if lang_tool.matches.is_empty() {
+                    return None;
+                }
+
+                return Some(&lang_tool.matches);
+            }
+            None => None,
+        };
+    }
+}
+
+pub trait LangTooContextTrait {
+    fn get_incorrect_chunk(&self) -> &str;
+}
+
+impl LangTooContextTrait for Context {
+    fn get_incorrect_chunk(&self) -> &str {
+        let offset = self.offset;
+        let lenth = self.offset + self.length;
+        return &self.text[offset..lenth];
+    }
+}
 
 #[derive(Debug)]
 pub struct LanguageToolFile<'ltf> {
@@ -234,4 +265,11 @@ impl<'cs> CodeString<'cs> {
             _ => false,
         };
     }
+}
+
+#[derive(Debug)]
+struct LanguageToolLines<'ltl> {
+    pub prog_lines: Vec<&'ltl ProgrammingLine>,
+    pub line_end_offset: Option<Vec<usize>>,
+    pub lang_tool: Option<LangTool>,
 }

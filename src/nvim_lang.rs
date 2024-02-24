@@ -2,7 +2,7 @@ use log::{debug, warn};
 
 use crate::{
     common::{LOWER_CASE_ALPHABET, UPPER_CASE_ALPHABET},
-    lang_tool::LanguageToolFile,
+    lang_tool::{LangTooContextTrait, LangToolTrait, LanguageToolFile},
     modules::{Category, Matche},
 };
 
@@ -30,14 +30,8 @@ impl NvimLanguageFile {
         for comment in &lang_tool_file.comments {
             // debug!("COMMENT = {:#?}", comment);
 
-            let matches: &Vec<Matche> = match comment.lang_tool {
-                Some(ref lang_tool) => {
-                    if lang_tool.matches.is_empty() {
-                        continue;
-                    }
-
-                    &lang_tool.matches
-                }
+            let matches = match comment.lang_tool.get_matches() {
+                Some(matches) => matches,
                 None => continue,
             };
 
@@ -45,9 +39,7 @@ impl NvimLanguageFile {
 
             for lang_match in matches {
                 let context = &lang_match.context;
-                let offset = context.offset;
-                let lenth = context.offset + context.length;
-                let chunk: &str = &context.text[offset..lenth];
+                let chunk = context.get_incorrect_chunk();
 
                 // debug!("CHUNk === *{}*{}", chunk, lang_match.sentence);
 
@@ -58,11 +50,6 @@ impl NvimLanguageFile {
                 }
 
                 for (index, line) in comment.prog_lines.iter().enumerate() {
-                    /*                     debug!(
-                                           "OR: {} -{}- {}",
-                                           line.line_number, chunk, line.original_line,
-                                       );
-                    */
                     // TODO: Need to test this with long indenting
                     if !(lang_match.offset <= comment.line_end_offset[index]) {
                         continue;
@@ -115,19 +102,10 @@ impl NvimLanguageFile {
     // TODO: Need to simplify this method
     // TODO: Find better name
     fn process_code(&mut self, lang_tool_file: &LanguageToolFile) {
-        let matches: &Vec<Matche> = match lang_tool_file.code.lang_tool {
-            Some(ref lang_tool) => {
-                if lang_tool.matches.is_empty() {
-                    return;
-                }
-
-                &lang_tool.matches
-            }
+        let matches = match lang_tool_file.code.lang_tool.get_matches() {
+            Some(matches) => matches,
             None => return,
         };
-
-        // debug!("CODE LINE:{:#?}", code_line.prog_line);
-        // debug!("======================\n:{:#?}", matches);
 
         for lang_match in matches {
             if !matches!(
@@ -138,23 +116,12 @@ impl NvimLanguageFile {
             }
 
             let context = &lang_match.context;
-            let offset = context.offset;
-            let lenth = context.offset + context.length;
-            let chunk: &str = &context.text[offset..lenth];
+            let chunk = context.get_incorrect_chunk();
 
             for line in &lang_tool_file.code.prog_lines {
                 let start_columns = get_target_offsets(&line.original_line, chunk);
 
-                // debug!(
-                //     "Columns {:?} CHUNk: {}  LINE: {}",
-                //     start_columns, chunk, line.original_line
-                // );
-
                 if start_columns.is_empty() {
-                    warn!(
-                        "Was unable to get offset off word '{}' in line {}",
-                        chunk, line.line_number
-                    );
                     continue;
                 }
 

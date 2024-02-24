@@ -2,6 +2,7 @@
 pub mod tests {
     use std::env;
 
+    use log::info;
     use nvim_lang_core::{
         common::{
             logger::Logger,
@@ -80,8 +81,6 @@ pub mod tests {
         let result = core.process_file(file_path).await;
 
         // info!("{:#?}", result);
-
-        log::logger().flush();
 
         Expected::data_len_to_be(15, &result);
         Expected::new(3, 34, 42, 1, "too have", vec!["to have"]).assert(0, &result);
