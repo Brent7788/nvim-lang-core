@@ -2,7 +2,10 @@ use log::{debug, warn};
 
 use crate::{
     common::{LOWER_CASE_ALPHABET, UPPER_CASE_ALPHABET},
-    lang_tool::{LangTooContextTrait, LangToolTrait, LanguageToolFile},
+    lang_tool::{
+        LangTooContextTrait, LangToolTrait, LanguageToolFile, LanguageToolLines,
+        LanguageToolLinesType,
+    },
     modules::{Category, Matche},
 };
 
@@ -20,17 +23,17 @@ impl NvimLanguageFile {
         };
     }
 
-    // TODO: Need to simplify this method
+    // TODO: Find better name
     pub fn create(lang_tool_file: &LanguageToolFile) -> NvimLanguageFile {
         let mut nvim_core = NvimLanguageFile {
             file_path: lang_tool_file.prog_file.file_path.to_owned(),
             nvim_lang_lines: Vec::new(),
         };
 
-        for comment in &lang_tool_file.comments {
+        for language_tool_lines in &lang_tool_file.lines {
             // debug!("COMMENT = {:#?}", comment);
 
-            let matches = match comment.lang_tool.get_matches() {
+            let matches = match language_tool_lines.lang_tool.get_matches() {
                 Some(matches) => matches,
                 None => continue,
             };
@@ -38,120 +41,122 @@ impl NvimLanguageFile {
             debug!("MATCH COUNT: {}", matches.len());
 
             for lang_match in matches {
-                let context = &lang_match.context;
-                let chunk = context.get_incorrect_chunk();
-
-                // debug!("CHUNk === *{}*{}", chunk, lang_match.sentence);
-
-                if chunk.is_empty() {
-                    // TODO: Find better warning message
-                    warn!("One of the matches is empty");
-                    continue;
-                }
-
-                for (index, line) in comment.prog_lines.iter().enumerate() {
-                    // TODO: Need to test this with long indenting
-                    if !(lang_match.offset <= comment.line_end_offset[index]) {
-                        continue;
-                    }
-
-                    let start_columns = get_target_offsets(&line.original_line, chunk);
-
-                    // debug!("Columns {:?}", start_columns);
-
-                    if start_columns.is_empty() {
-                        warn!(
-                            "Was unable to get offset off word {} in line {}",
-                            chunk, line.line_number
-                        );
-                        continue;
-                    }
-
-                    // TODO: Need to check for duplicates
-                    for start_column in start_columns {
-                        nvim_core.nvim_lang_lines.push(NvimLanguageLine {
-                            line_number: line.line_number,
-                            start_column,
-                            end_column: start_column + context.length,
-                            options: NvimOptions {
-                                original: chunk.to_owned(),
-                                options: lang_match
-                                    .replacements
-                                    .iter()
-                                    .map(|r| r.value.clone())
-                                    .collect(), // TODO: There should be max limit on the options!
-                            },
-                            data_type: NvimLangLineType::get_type(&lang_match.rule.category),
-                        });
-                    }
-
-                    break;
-                }
+                nvim_core.push_if_comments(lang_match, language_tool_lines);
+                nvim_core.push_if_code(lang_match, language_tool_lines);
             }
         }
-
-        nvim_core.process_code(lang_tool_file);
 
         return nvim_core;
     }
 
-    pub fn is_empty(&self) -> bool {
-        return self.file_path.is_empty() || self.nvim_lang_lines.is_empty();
-    }
+    fn push_if_comments(&mut self, lang_match: &Matche, lang_tool_lines: &LanguageToolLines) {
+        if !matches!(lang_tool_lines.tp, LanguageToolLinesType::Comment) {
+            return;
+        }
 
-    // TODO: Need to simplify this method
-    // TODO: Find better name
-    fn process_code(&mut self, lang_tool_file: &LanguageToolFile) {
-        let matches = match lang_tool_file.code.lang_tool.get_matches() {
-            Some(matches) => matches,
-            None => return,
-        };
+        let context = &lang_match.context;
+        let chunk = context.get_incorrect_chunk();
 
-        for lang_match in matches {
-            if !matches!(
-                NvimLangLineType::get_type(&lang_match.rule.category),
-                NvimLangLineType::Typos
-            ) {
+        // debug!("CHUNk === *{}*{}", chunk, lang_match.sentence);
+
+        if chunk.is_empty() {
+            // TODO: Find better warning message
+            warn!("One of the matches is empty");
+            return;
+        }
+
+        for (index, line) in lang_tool_lines.prog_lines.iter().enumerate() {
+            // TODO: Need to test this with long indenting
+            if !(lang_match.offset <= lang_tool_lines.line_end_offset[index]) {
                 continue;
             }
 
-            let context = &lang_match.context;
-            let chunk = context.get_incorrect_chunk();
+            let start_columns = get_target_offsets(&line.original_line, chunk);
 
-            for line in &lang_tool_file.code.prog_lines {
-                let start_columns = get_target_offsets(&line.original_line, chunk);
+            // debug!("Columns {:?}", start_columns);
 
-                if start_columns.is_empty() {
+            if start_columns.is_empty() {
+                warn!(
+                    "Was unable to get offset off word {} in line {}",
+                    chunk, line.line_number
+                );
+                continue;
+            }
+
+            // TODO: Need to check for duplicates
+            for start_column in start_columns {
+                self.nvim_lang_lines.push(NvimLanguageLine {
+                    line_number: line.line_number,
+                    start_column,
+                    end_column: start_column + context.length,
+                    options: NvimOptions {
+                        original: chunk.to_owned(),
+                        options: lang_match
+                            .replacements
+                            .iter()
+                            .map(|r| r.value.clone())
+                            .collect(), // TODO: There should be max limit on the options!
+                    },
+                    data_type: NvimLangLineType::get_type(&lang_match.rule.category),
+                });
+            }
+
+            break;
+        }
+    }
+
+    fn push_if_code(&mut self, lang_match: &Matche, lang_tool_lines: &LanguageToolLines) {
+        if !matches!(lang_tool_lines.tp, LanguageToolLinesType::Code) {
+            return;
+        }
+
+        if !matches!(
+            NvimLangLineType::get_type(&lang_match.rule.category),
+            NvimLangLineType::Typos
+        ) {
+            return;
+        }
+
+        let context = &lang_match.context;
+        let chunk = context.get_incorrect_chunk();
+
+        for line in &lang_tool_lines.prog_lines {
+            let start_columns = get_target_offsets(&line.original_line, chunk);
+
+            if start_columns.is_empty() {
+                continue;
+            }
+
+            // TODO: Need to check for duplicates
+            for start_column in start_columns {
+                if self.line_exit(
+                    line.line_number,
+                    start_column,
+                    start_column + context.length,
+                ) {
                     continue;
                 }
 
-                // TODO: Need to check for duplicates
-                for start_column in start_columns {
-                    if self.line_exit(
-                        line.line_number,
-                        start_column,
-                        start_column + context.length,
-                    ) {
-                        continue;
-                    }
-
-                    self.nvim_lang_lines.push(NvimLanguageLine {
-                        line_number: line.line_number,
-                        start_column,
-                        end_column: start_column + context.length,
-                        options: NvimOptions {
-                            original: chunk.to_owned(),
-                            options: lang_match
-                                .replacements
-                                .iter()
-                                .map(|r| r.value.clone())
-                                .collect(), // TODO: There should be max limit on the options!
-                        },
-                        data_type: NvimLangLineType::get_type(&lang_match.rule.category),
-                    });
-                }
+                self.nvim_lang_lines.push(NvimLanguageLine {
+                    line_number: line.line_number,
+                    start_column,
+                    end_column: start_column + context.length,
+                    options: NvimOptions {
+                        original: chunk.to_owned(),
+                        options: lang_match
+                            .replacements
+                            .iter()
+                            .map(|r| r.value.clone())
+                            .collect(), // TODO: There should be max limit on the options!
+                    },
+                    data_type: NvimLangLineType::get_type(&lang_match.rule.category),
+                });
             }
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        return self.file_path.is_empty() || self.nvim_lang_lines.is_empty();
     }
 
     fn line_exit(&self, line_number: usize, start_column: usize, end_column: usize) -> bool {

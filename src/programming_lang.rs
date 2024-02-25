@@ -417,6 +417,34 @@ impl ProgrammingLine {
         };
     }
 
+    pub fn is_line_comment(&self) -> bool {
+        return match self.prog_type {
+            crate::programming_lang::ProgrammingLineType::CodeWithComment => true,
+            crate::programming_lang::ProgrammingLineType::Comment => true,
+            crate::programming_lang::ProgrammingLineType::BlockCommentStart => true,
+            crate::programming_lang::ProgrammingLineType::BlockComment => true,
+            crate::programming_lang::ProgrammingLineType::BlockCommentEnd => true,
+            crate::programming_lang::ProgrammingLineType::BlockCommentStartAndEnd => true,
+            _ => false,
+        };
+    }
+
+    pub fn is_code_line(&self) -> bool {
+        return match self.prog_type {
+            crate::programming_lang::ProgrammingLineType::Code => true,
+            crate::programming_lang::ProgrammingLineType::CodeWithComment => true,
+            _ => false,
+        };
+    }
+
+    pub fn is_code_string_line(&self) -> bool {
+        return match self.prog_type {
+            crate::programming_lang::ProgrammingLineType::CodeWithString => true,
+            crate::programming_lang::ProgrammingLineType::CodeWithStringWithComment => true,
+            _ => false,
+        };
+    }
+
     //TODO: Find better method name
     pub fn debug_ptrs(&self) -> (Option<&str>, Option<&str>) {
         let code_line = match self.code_line {
