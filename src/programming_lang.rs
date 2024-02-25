@@ -181,6 +181,8 @@ pub struct ProgrammingFile<'pf> {
     pub file_path: &'pf str,
     pub lang: &'pf ProgrammingLanguage<'pf>,
     pub lines: Vec<ProgrammingLine>,
+    pub commet_count: u64,
+    pub string_count: u64,
 }
 
 impl<'pf> ProgrammingFile<'pf> {
@@ -189,6 +191,8 @@ impl<'pf> ProgrammingFile<'pf> {
             file_path,
             lines: Vec::new(),
             lang,
+            commet_count: 0,
+            string_count: 0,
         };
 
         prog_file.generate_line();
@@ -221,14 +225,41 @@ impl<'pf> ProgrammingFile<'pf> {
             };
 
             let mut programming_line = ProgrammingLine::new(index + 1, line);
-            programming_line.set_type(self.lang, self.lines.last());
+            let last_prog_line = self.lines.last();
+
+            programming_line.set_type(self.lang, last_prog_line);
             programming_line.set_if_comment(self.lang);
             programming_line.set_if_block_comment();
             programming_line.set_if_code();
             programming_line.set_if_contain_strings(self.lang);
             programming_line.set_hash(&mut hasher);
 
+            self.increment_counts(&programming_line);
             self.lines.push(programming_line);
+        }
+
+        if let Some(last_prog_line) = self.lines.last() {
+            if last_prog_line.is_line_comment() {
+                self.commet_count += 1;
+            }
+        }
+    }
+
+    fn increment_counts(&mut self, prog_line: &ProgrammingLine) {
+        if prog_line.is_code_string_line() {
+            for str_line in prog_line.string_line {
+                if matches!(str_line, None) {
+                    break;
+                }
+
+                self.string_count += 1;
+            }
+        }
+
+        if let Some(last_prog_line) = self.lines.last() {
+            if !prog_line.is_line_comment() && last_prog_line.is_line_comment() {
+                self.commet_count += 1;
+            }
         }
     }
 
@@ -325,6 +356,7 @@ impl ProgrammingLine {
             if left_of_line.trim().is_empty() {
                 return;
             }
+
             // TODO: The code line need to be transformed
             self.code_line = Some(left_of_line);
             self.prog_type = ProgrammingLineType::CodeWithComment;

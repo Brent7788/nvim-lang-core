@@ -79,8 +79,10 @@ impl<'ltl> LanguageToolLines<'ltl> {
         prog_file: &'ltl ProgrammingFile<'ltl>,
         client: &LangToolClient,
     ) -> Vec<LanguageToolLines<'ltl>> {
-        // TODO: This with_capacity might be to big?
-        let mut lang_tool_lines: Vec<LanguageToolLines> = Vec::with_capacity(prog_file.lines.len());
+        const CODE_COUNT: u64 = 1;
+        let mut lang_tool_lines: Vec<LanguageToolLines> = Vec::with_capacity(
+            (CODE_COUNT + prog_file.commet_count + prog_file.string_count) as usize,
+        );
 
         lang_tool_lines.push_if_comments(prog_file, client).await;
         lang_tool_lines.push_if_code(prog_file, client).await;
@@ -194,7 +196,7 @@ impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
         //       Maybe on the ProgrammingFile predetermine/count comment, code and string line
         let mut code: LanguageToolLines = LanguageToolLines {
             prog_lines: Vec::with_capacity(prog_file.lines.len()),
-            line_end_offset: Vec::new(),
+            line_end_offset: Vec::with_capacity(0),
             lang_tool: None,
             tp: LanguageToolLinesType::Undefined,
         };
