@@ -41,9 +41,7 @@ impl LangTooContextTrait for Context {
 #[derive(Debug)]
 pub struct LanguageToolFile<'ltf> {
     pub prog_file: &'ltf ProgrammingFile<'ltf>,
-    pub comments: Vec<Comment<'ltf>>,
-    pub code: Code<'ltf>,
-    pub code_strings: Vec<CodeString<'ltf>>,
+    pub lines: Vec<LanguageToolLines<'ltf>>,
 }
 
 impl<'ltf> LanguageToolFile<'ltf> {
@@ -53,94 +51,57 @@ impl<'ltf> LanguageToolFile<'ltf> {
     ) -> LanguageToolFile<'ltf> {
         return LanguageToolFile {
             prog_file,
-            comments: Comment::generate(prog_file, client).await,
-            code: Code::generate(prog_file, client).await,
-            code_strings: CodeString::generate(prog_file, client).await,
+            lines: LanguageToolLines::generate(prog_file, client).await,
         };
     }
 }
 
 #[derive(Debug)]
-pub struct Comment<'c> {
-    pub prog_lines: Vec<&'c ProgrammingLine>,
-    pub line_end_offset: Vec<usize>,
-    pub comment: String,
-    pub lang_tool: Option<LangTool>,
+pub enum LanguageToolLinesType {
+    Comment,
+    Code,
+    String,
+    Undefined,
 }
 
-impl<'c> Comment<'c> {
-    fn new() -> Comment<'c> {
-        return Comment {
-            prog_lines: Vec::new(),
-            line_end_offset: Vec::new(),
-            comment: String::new(),
-            lang_tool: None,
-        };
-    }
-    async fn generate<'pl>(
-        prog_file: &'pl ProgrammingFile<'pl>,
+#[derive(Debug)]
+pub struct LanguageToolLines<'ltl> {
+    // TODO: Need to find a way to use Vec::with_capacity.
+    //       Maybe on the ProgrammingFile predetermine/count comment, code and string line
+    pub prog_lines: Vec<&'ltl ProgrammingLine>,
+    pub line_end_offset: Vec<usize>,
+    pub lang_tool: Option<LangTool>,
+    pub tp: LanguageToolLinesType,
+}
+
+impl<'ltl> LanguageToolLines<'ltl> {
+    async fn generate(
+        prog_file: &'ltl ProgrammingFile<'ltl>,
         client: &LangToolClient,
-    ) -> Vec<Comment<'pl>> {
-        let mut comments: Vec<Comment> = Vec::new();
+    ) -> Vec<LanguageToolLines<'ltl>> {
+        // TODO: This with_capacity might be to big?
+        let mut lang_tool_lines: Vec<LanguageToolLines> = Vec::with_capacity(prog_file.lines.len());
 
-        let mut comment: Comment = Comment::new();
+        lang_tool_lines.push_if_comments(prog_file, client).await;
+        lang_tool_lines.push_if_code(prog_file, client).await;
+        lang_tool_lines.push_if_strings(prog_file, client).await;
 
-        for prog_line in &prog_file.lines {
-            if !Comment::is_line_comment(prog_line) && !comment.is_empty() {
-                comment.lang_tool = client.get_lang_tool(&comment.comment).await;
-                comments.push(comment);
-                comment = Comment::new();
-                continue;
-            }
-
-            if !Comment::is_line_comment(prog_line) && comment.is_empty() {
-                continue;
-            }
-
-            comment.push_line_end_offset(prog_line);
-
-            comment.comment = format!("{} {}", comment.comment.as_str(), prog_line.get_comment());
-
-            comment.prog_lines.push(prog_line);
-
-            // info!("COMMENT: {:#?}", comment);
-        }
-
-        if comment.prog_lines.len() > 0 {
-            comment.lang_tool = client.get_lang_tool(&comment.comment).await;
-            comments.push(comment);
-        }
-
-        // info!("COMMENT: {:#?}", comments);
-
-        return comments;
+        return lang_tool_lines;
     }
 
-    fn is_line_comment(prog_line: &ProgrammingLine) -> bool {
-        return match prog_line.prog_type {
-            crate::programming_lang::ProgrammingLineType::CodeWithComment => true,
-            crate::programming_lang::ProgrammingLineType::Comment => true,
-            crate::programming_lang::ProgrammingLineType::BlockCommentStart => true,
-            crate::programming_lang::ProgrammingLineType::BlockComment => true,
-            crate::programming_lang::ProgrammingLineType::BlockCommentEnd => true,
-            crate::programming_lang::ProgrammingLineType::BlockCommentStartAndEnd => true,
-            _ => false,
-        };
-    }
-
-    fn push_line_end_offset(&mut self, prog_line: &ProgrammingLine) {
+    fn push_line_end_offset(&mut self, prog_raw_line_length: usize) {
         let last_line_end_offset = match self.line_end_offset.last() {
             Some(ln_end) => ln_end,
             None => &0,
         };
 
-        let offset = prog_line.get_comment().len() + last_line_end_offset;
+        let offset = prog_raw_line_length + last_line_end_offset;
 
         self.line_end_offset.push(offset);
     }
 
-    fn is_empty(&self) -> bool {
-        if self.prog_lines.is_empty() && self.line_end_offset.is_empty() && self.comment.is_empty()
+    fn is_comment_empty(&self, full_comment: &str) -> bool {
+        if self.prog_lines.is_empty() && self.line_end_offset.is_empty() && full_comment.is_empty()
         {
             return true;
         }
@@ -149,28 +110,99 @@ impl<'c> Comment<'c> {
     }
 }
 
-#[derive(Debug)]
-pub struct Code<'c> {
-    pub prog_lines: Vec<&'c ProgrammingLine>,
-    pub processed_code: String,
-    pub lang_tool: Option<LangTool>,
+trait LanguageToolLinesVecTrait<'ltl> {
+    async fn push_if_comments(
+        &mut self,
+        prog_file: &'ltl ProgrammingFile<'ltl>,
+        client: &LangToolClient,
+    );
+
+    async fn push_if_code(
+        &mut self,
+        prog_file: &'ltl ProgrammingFile<'ltl>,
+        client: &LangToolClient,
+    );
+    async fn push_if_strings(
+        &mut self,
+        prog_file: &'ltl ProgrammingFile<'ltl>,
+        client: &LangToolClient,
+    );
 }
 
-impl<'c> Code<'c> {
-    // TODO: Need to simplify this method
-    async fn generate<'pl>(
-        prog_file: &'pl ProgrammingFile<'pl>,
+impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
+    async fn push_if_comments(
+        &mut self,
+        prog_file: &'ltl ProgrammingFile<'ltl>,
         client: &LangToolClient,
-    ) -> Code<'pl> {
-        // TODO: Should limit processed char count to 5000, if 5000 create new Code.
-        let mut code = Code {
-            prog_lines: Vec::with_capacity(prog_file.lines.len()),
-            processed_code: String::from("Ignore"),
+    ) {
+        // TODO: Need to find a way to use Vec::with_capacity.
+        //       Maybe on the ProgrammingFile predetermine/count comment, code and string line
+        let mut comment: LanguageToolLines = LanguageToolLines {
+            prog_lines: Vec::new(),
+            line_end_offset: Vec::new(),
             lang_tool: None,
+            tp: LanguageToolLinesType::Undefined,
         };
+        let mut full_comment = String::new();
 
         for prog_line in &prog_file.lines {
-            if !Code::is_code_line(prog_line) {
+            if !prog_line.is_line_comment() && !comment.is_comment_empty(&full_comment) {
+                comment.lang_tool = client.get_lang_tool(&full_comment).await;
+                comment.tp = LanguageToolLinesType::Comment;
+                self.push(comment);
+
+                full_comment = String::new();
+                comment = LanguageToolLines {
+                    prog_lines: Vec::new(),
+                    line_end_offset: Vec::new(),
+                    lang_tool: None,
+                    tp: LanguageToolLinesType::Undefined,
+                };
+                continue;
+            }
+
+            if !prog_line.is_line_comment() && comment.is_comment_empty(&full_comment) {
+                continue;
+            }
+
+            let prog_line_comment = prog_line.get_comment();
+            comment.push_line_end_offset(prog_line_comment.len());
+
+            full_comment = format!("{} {}", full_comment.as_str(), prog_line_comment);
+
+            comment.prog_lines.push(prog_line);
+
+            // info!("COMMENT: {:#?}", comment);
+        }
+
+        if comment.prog_lines.len() > 0 {
+            comment.tp = LanguageToolLinesType::Comment;
+            comment.lang_tool = client.get_lang_tool(&full_comment).await;
+            self.push(comment);
+        }
+
+        // info!("COMMENT: {:#?}", comments);
+    }
+
+    async fn push_if_code(
+        &mut self,
+        prog_file: &'ltl ProgrammingFile<'ltl>,
+        client: &LangToolClient,
+    ) {
+        // TODO: Should limit processed char count to 5000, if 5000 create new Code.
+        // TODO: Need to find a way to use Vec::with_capacity.
+        //       Maybe on the ProgrammingFile predetermine/count comment, code and string line
+        let mut code: LanguageToolLines = LanguageToolLines {
+            prog_lines: Vec::with_capacity(prog_file.lines.len()),
+            line_end_offset: Vec::new(),
+            lang_tool: None,
+            tp: LanguageToolLinesType::Undefined,
+        };
+
+        let mut processed_code = String::from("Ignore");
+
+        for prog_line in &prog_file.lines {
+            if !prog_line.is_code_line() {
                 continue;
             }
 
@@ -179,7 +211,7 @@ impl<'c> Code<'c> {
                 .replase_all_operators_and_syntax_with_whitespace(prog_line.get_code());
 
             let code_line_split = code_line.split_whitespace();
-            let processed_code_len = code.processed_code.len();
+            let processed_code_len = processed_code.len();
 
             for code_chunk in code_line_split {
                 let code_chunk = code_chunk.trim();
@@ -190,51 +222,35 @@ impl<'c> Code<'c> {
 
                 let code_chunk = prog_file.lang.split_by_naming_conventions(code_chunk);
 
-                code.processed_code.push_str(" ");
-                code.processed_code.push_str(code_chunk.trim());
+                processed_code.push_str(" ");
+                processed_code.push_str(code_chunk.trim());
             }
 
-            if processed_code_len < code.processed_code.len() {
+            if processed_code_len < processed_code.len() {
                 code.prog_lines.push(prog_line);
             }
         }
 
-        if code.processed_code == "Ignore" {
-            return code;
+        if processed_code == "Ignore" {
+            return;
         }
         // debug!("CODE: {:#?}", code);
 
-        code.lang_tool = client.get_lang_tool(&code.processed_code).await;
+        code.lang_tool = client.get_lang_tool(&processed_code).await;
 
         // debug!("CODE: {:#?}", code);
 
-        return code;
+        code.tp = LanguageToolLinesType::Code;
+        self.push(code);
     }
 
-    fn is_code_line(prog_line: &ProgrammingLine) -> bool {
-        return match prog_line.prog_type {
-            crate::programming_lang::ProgrammingLineType::Code => true,
-            crate::programming_lang::ProgrammingLineType::CodeWithComment => true,
-            _ => false,
-        };
-    }
-}
-
-#[derive(Debug)]
-pub struct CodeString<'cs> {
-    pub prog_lines: &'cs ProgrammingLine,
-    pub lang_tool: Option<LangTool>,
-}
-
-impl<'cs> CodeString<'cs> {
-    async fn generate(
-        prog_file: &'cs ProgrammingFile<'cs>,
+    async fn push_if_strings(
+        &mut self,
+        prog_file: &'ltl ProgrammingFile<'ltl>,
         client: &LangToolClient,
-    ) -> Vec<CodeString<'cs>> {
-        let mut code_strings: Vec<CodeString> = vec![];
-
+    ) {
         for line in &prog_file.lines {
-            if !CodeString::is_code_string_line(line) {
+            if !line.is_code_string_line() {
                 continue;
             }
 
@@ -248,28 +264,13 @@ impl<'cs> CodeString<'cs> {
                     continue;
                 }
 
-                code_strings.push(CodeString {
-                    prog_lines: line,
+                self.push(LanguageToolLines {
+                    prog_lines: vec![line],
+                    line_end_offset: Vec::with_capacity(0),
                     lang_tool: client.get_lang_tool(str_line).await,
+                    tp: LanguageToolLinesType::String,
                 });
             }
         }
-
-        return code_strings;
     }
-
-    fn is_code_string_line(prog_line: &ProgrammingLine) -> bool {
-        return match prog_line.prog_type {
-            crate::programming_lang::ProgrammingLineType::CodeWithString => true,
-            crate::programming_lang::ProgrammingLineType::CodeWithStringWithComment => true,
-            _ => false,
-        };
-    }
-}
-
-#[derive(Debug)]
-struct LanguageToolLines<'ltl> {
-    pub prog_lines: Vec<&'ltl ProgrammingLine>,
-    pub line_end_offset: Option<Vec<usize>>,
-    pub lang_tool: Option<LangTool>,
 }
