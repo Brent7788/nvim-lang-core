@@ -86,7 +86,7 @@ impl<'lang> ProgrammingLanguage<'lang> {
                     "enum", "extern", "false", "fn", "for", "if", "impl", "in", "let", "loop",
                     "match", "mod", "move", "mut", "pub", "ref", "return", "Self", "self",
                     "static", "struct", "super", "trait", "true", "type", "unsafe", "use", "where",
-                    "while",
+                    "while", "str",
                 ],
                 operators_and_syntax: vec![
                     "+", "-", "*", "/", "%", "=", "!", ">", "<", "&", "^", "/=", "%=", "(", ")",

@@ -21,8 +21,6 @@ pub mod tests {
 
         let result = core.process_file(file_path).await;
 
-        log::logger().flush();
-
         Expected::data_len_to_be(1, &result);
         Expected::new(1, 10, 15, 6, "simle", vec!["simple", "smile", "simile"]).assert(0, &result);
     }

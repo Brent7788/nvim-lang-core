@@ -31,22 +31,23 @@ impl NvimLanguageFile {
         };
 
         for language_tool_lines in &lang_tool_file.lines {
-            // debug!("COMMENT = {:#?}", comment);
-
             let matches = match language_tool_lines.lang_tool.get_matches() {
                 Some(matches) => matches,
                 None => continue,
             };
 
-            debug!("MATCH COUNT: {}", matches.len());
-
             for lang_match in matches {
                 nvim_core.push_if_comments(lang_match, language_tool_lines);
                 nvim_core.push_if_code(lang_match, language_tool_lines);
+                nvim_core.push_if_strings(lang_match, language_tool_lines);
             }
         }
 
         return nvim_core;
+    }
+
+    pub fn is_empty(&self) -> bool {
+        return self.file_path.is_empty() || self.nvim_lang_lines.is_empty();
     }
 
     fn push_if_comments(&mut self, lang_match: &Matche, lang_tool_lines: &LanguageToolLines) {
@@ -72,8 +73,6 @@ impl NvimLanguageFile {
             }
 
             let start_columns = get_target_offsets(&line.original_line, chunk);
-
-            // debug!("Columns {:?}", start_columns);
 
             if start_columns.is_empty() {
                 warn!(
@@ -127,7 +126,6 @@ impl NvimLanguageFile {
                 continue;
             }
 
-            // TODO: Need to check for duplicates
             for start_column in start_columns {
                 if self.line_exit(
                     line.line_number,
@@ -155,8 +153,46 @@ impl NvimLanguageFile {
         }
     }
 
-    pub fn is_empty(&self) -> bool {
-        return self.file_path.is_empty() || self.nvim_lang_lines.is_empty();
+    fn push_if_strings(&mut self, lang_match: &Matche, lang_tool_lines: &LanguageToolLines) {
+        if !matches!(lang_tool_lines.tp, LanguageToolLinesType::String) {
+            return;
+        }
+
+        let context = &lang_match.context;
+        let chunk = context.get_incorrect_chunk();
+
+        for line in &lang_tool_lines.prog_lines {
+            let start_columns = get_target_offsets(&line.original_line, chunk);
+
+            if start_columns.is_empty() {
+                continue;
+            }
+
+            for start_column in start_columns {
+                if self.line_exit(
+                    line.line_number,
+                    start_column,
+                    start_column + context.length,
+                ) {
+                    continue;
+                }
+
+                self.nvim_lang_lines.push(NvimLanguageLine {
+                    line_number: line.line_number,
+                    start_column,
+                    end_column: start_column + context.length,
+                    options: NvimOptions {
+                        original: chunk.to_owned(),
+                        options: lang_match
+                            .replacements
+                            .iter()
+                            .map(|r| r.value.clone())
+                            .collect(), // TODO: There should be max limit on the options!
+                    },
+                    data_type: NvimLangLineType::get_type(&lang_match.rule.category),
+                });
+            }
+        }
     }
 
     fn line_exit(&self, line_number: usize, start_column: usize, end_column: usize) -> bool {

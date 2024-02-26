@@ -80,9 +80,10 @@ impl<'ltl> LanguageToolLines<'ltl> {
         client: &LangToolClient,
     ) -> Vec<LanguageToolLines<'ltl>> {
         const CODE_COUNT: u64 = 1;
-        let mut lang_tool_lines: Vec<LanguageToolLines> = Vec::with_capacity(
-            (CODE_COUNT + prog_file.commet_count + prog_file.string_count) as usize,
-        );
+        let lang_tool_lines_count =
+            (CODE_COUNT + prog_file.commet_count + prog_file.string_count) as usize;
+
+        let mut lang_tool_lines: Vec<LanguageToolLines> = Vec::with_capacity(lang_tool_lines_count);
 
         lang_tool_lines.push_if_comments(prog_file, client).await;
         lang_tool_lines.push_if_code(prog_file, client).await;
