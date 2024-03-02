@@ -1,4 +1,11 @@
 use log::{debug, warn};
+use nvim_oxi::{
+    conversion::{FromObject, ToObject},
+    lua,
+    serde::{Deserializer, Serializer},
+    Object,
+};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     common::{LOWER_CASE_ALPHABET, UPPER_CASE_ALPHABET},
@@ -9,10 +16,40 @@ use crate::{
     modules::{Category, Matche},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct NvimLanguageFile {
     pub file_path: String,
     pub nvim_lang_lines: Vec<NvimLanguageLine>,
+}
+
+impl FromObject for NvimLanguageFile {
+    fn from_object(object: nvim_oxi::Object) -> Result<Self, nvim_oxi::conversion::Error> {
+        return Self::deserialize(Deserializer::new(object)).map_err(Into::into);
+    }
+}
+
+impl ToObject for NvimLanguageFile {
+    fn to_object(self) -> Result<nvim_oxi::Object, nvim_oxi::conversion::Error> {
+        return self.serialize(Serializer::new()).map_err(Into::into);
+    }
+}
+
+impl lua::Poppable for NvimLanguageFile {
+    unsafe fn pop(lstate: *mut lua::ffi::lua_State) -> Result<Self, lua::Error> {
+        let obj = Object::pop(lstate)?;
+        Self::from_object(obj).map_err(lua::Error::pop_error_from_err::<Self, _>)
+    }
+}
+
+impl lua::Pushable for NvimLanguageFile {
+    unsafe fn push(
+        self,
+        lstate: *mut nvim_oxi::lua::ffi::lua_State,
+    ) -> Result<std::ffi::c_int, lua::Error> {
+        self.to_object()
+            .map_err(lua::Error::push_error_from_err::<Self, _>)?
+            .push(lstate)
+    }
 }
 
 impl NvimLanguageFile {
@@ -209,7 +246,7 @@ impl NvimLanguageFile {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct NvimLanguageLine {
     pub line_number: usize,
     pub start_column: usize,
@@ -217,14 +254,74 @@ pub struct NvimLanguageLine {
     pub options: NvimOptions,
     pub data_type: NvimLangLineType,
 }
+//
+// impl FromObject for NvimLanguageLine {
+//     fn from_object(object: nvim_oxi::Object) -> Result<Self, nvim_oxi::conversion::Error> {
+//         return Self::deserialize(Deserializer::new(object)).map_err(Into::into);
+//     }
+// }
+//
+// impl ToObject for NvimLanguageLine {
+//     fn to_object(self) -> Result<nvim_oxi::Object, nvim_oxi::conversion::Error> {
+//         return self.serialize(Serializer::new()).map_err(Into::into);
+//     }
+// }
+//
+// impl lua::Poppable for NvimLanguageLine {
+//     unsafe fn pop(lstate: *mut lua::ffi::lua_State) -> Result<Self, lua::Error> {
+//         let obj = Object::pop(lstate)?;
+//         Self::from_object(obj).map_err(lua::Error::pop_error_from_err::<Self, _>)
+//     }
+// }
+//
+// impl Pushable for NvimLanguageLine {
+//     unsafe fn push(
+//         self,
+//         lstate: *mut nvim_oxi::lua::ffi::lua_State,
+//     ) -> Result<std::ffi::c_int, lua::Error> {
+//         self.to_object()
+//             .map_err(lua::Error::push_error_from_err::<Self, _>)?
+//             .push(lstate)
+//     }
+// }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct NvimOptions {
     pub original: String,
     pub options: Vec<String>,
 }
 
-#[derive(Debug)]
+// impl FromObject for NvimOptions {
+//     fn from_object(object: nvim_oxi::Object) -> Result<Self, nvim_oxi::conversion::Error> {
+//         return Self::deserialize(Deserializer::new(object)).map_err(Into::into);
+//     }
+// }
+//
+// impl ToObject for NvimOptions {
+//     fn to_object(self) -> Result<nvim_oxi::Object, nvim_oxi::conversion::Error> {
+//         return self.serialize(Serializer::new()).map_err(Into::into);
+//     }
+// }
+//
+// impl lua::Poppable for NvimOptions {
+//     unsafe fn pop(lstate: *mut lua::ffi::lua_State) -> Result<Self, lua::Error> {
+//         let obj = Object::pop(lstate)?;
+//         Self::from_object(obj).map_err(lua::Error::pop_error_from_err::<Self, _>)
+//     }
+// }
+//
+// impl Pushable for NvimOptions {
+//     unsafe fn push(
+//         self,
+//         lstate: *mut nvim_oxi::lua::ffi::lua_State,
+//     ) -> Result<std::ffi::c_int, lua::Error> {
+//         self.to_object()
+//             .map_err(lua::Error::push_error_from_err::<Self, _>)?
+//             .push(lstate)
+//     }
+// }
+
+#[derive(Debug, Serialize, Deserialize)]
 pub enum NvimLangLineType {
     Typos,
     Punctuation,

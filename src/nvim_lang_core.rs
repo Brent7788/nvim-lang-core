@@ -1,4 +1,5 @@
 use log::{debug, warn};
+use nvim_oxi::Result;
 
 use crate::lang_tool::LanguageToolFile;
 use crate::lang_tool_client::LangToolClient;
@@ -20,10 +21,10 @@ impl<'lang> NvimLangCore<'lang> {
     }
 
     // TODO: Find better method name.
-    pub async fn process_file(&self, file_path: String) -> NvimLanguageFile {
+    pub async fn process_file(&self, file_path: String) -> Result<NvimLanguageFile> {
         if file_path.is_empty() {
             warn!("No file path was provided");
-            return NvimLanguageFile::new();
+            return Ok(NvimLanguageFile::new());
         }
 
         let lang = match self.get_file_type(&file_path) {
@@ -33,7 +34,7 @@ impl<'lang> NvimLangCore<'lang> {
                     "nvim-lang-core does not support this file type: {}",
                     file_path
                 );
-                return NvimLanguageFile::new();
+                return Ok(NvimLanguageFile::new());
             }
         };
 
@@ -43,7 +44,7 @@ impl<'lang> NvimLangCore<'lang> {
 
         // debug!("LANG FILE: {:#?}", lang_tool_file.code);
 
-        return NvimLanguageFile::create(&lang_tool_file);
+        return Ok(NvimLanguageFile::create(&lang_tool_file));
     }
 
     fn get_file_type(&self, file_path: &String) -> Option<&ProgrammingLanguage> {
