@@ -1,6 +1,10 @@
 #[cfg(test)]
 pub mod tests {
-    use std::env;
+    use std::{
+        borrow::{Borrow, BorrowMut},
+        env,
+        rc::Rc,
+    };
 
     use log::info;
     use nvim_lang_core::{
@@ -19,7 +23,7 @@ pub mod tests {
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path).await;
+        let result = core.process_file(file_path).await.unwrap();
 
         Expected::data_len_to_be(1, &result);
         Expected::new(1, 10, 15, 6, "simle", vec!["simple", "smile", "simile"]).assert(0, &result);
@@ -33,7 +37,7 @@ pub mod tests {
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path).await;
+        let result = core.process_file(file_path).await.unwrap();
 
         log::logger().flush();
 
@@ -54,7 +58,7 @@ pub mod tests {
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path).await;
+        let result = core.process_file(file_path).await.unwrap();
 
         log::logger().flush();
 
@@ -76,7 +80,7 @@ pub mod tests {
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path).await;
+        let result = core.process_file(file_path).await.unwrap();
 
         // info!("{:#?}", result);
 

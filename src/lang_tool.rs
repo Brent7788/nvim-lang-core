@@ -259,7 +259,7 @@ impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
 
             for str_line_opt in &line.string_line {
                 let str_line = match str_line_opt {
-                    Some(str_line) => str_line.as_str(),
+                    Some(str_line) => str_line,
                     None => break,
                 };
 

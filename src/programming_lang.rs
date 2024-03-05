@@ -4,6 +4,7 @@ use std::{
     fs::File,
     hash::{Hash, Hasher},
     io::{BufRead, BufReader},
+    rc::Rc,
     str::from_utf8_unchecked,
     usize,
 };
@@ -247,7 +248,7 @@ impl<'pf> ProgrammingFile<'pf> {
 
     fn increment_counts(&mut self, prog_line: &ProgrammingLine) {
         if prog_line.is_code_string_line() {
-            for str_line in prog_line.string_line {
+            for str_line in &prog_line.string_line {
                 if matches!(str_line, None) {
                     break;
                 }
@@ -262,12 +263,6 @@ impl<'pf> ProgrammingFile<'pf> {
             }
         }
     }
-
-    pub fn debug_p(&self) {
-        for line in &self.lines {
-            info!("{:?}", line.debug_ptrs());
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -275,9 +270,9 @@ pub struct ProgrammingLine {
     pub hash: u64,
     pub line_number: usize,
     pub original_line: String,
-    pub commented_line: Option<*const str>,
-    pub code_line: Option<*const str>,
-    pub string_line: [Option<*const str>; 4],
+    pub commented_line: Option<Rc<str>>,
+    pub code_line: Option<Rc<str>>,
+    pub string_line: [Option<Rc<str>>; 4],
     pub prog_type: ProgrammingLineType,
 }
 
@@ -289,7 +284,7 @@ impl ProgrammingLine {
             original_line,
             commented_line: None,
             code_line: None,
-            string_line: [None; 4],
+            string_line: [None, None, None, None],
             prog_type: ProgrammingLineType::Unknown,
         };
     }
@@ -351,14 +346,14 @@ impl ProgrammingLine {
         let line_comment_option = self.original_line.split_once(lang.comment_delimiter);
 
         if let Some((left_of_line, right_of_line)) = line_comment_option {
-            self.commented_line = Some(right_of_line.trim());
+            self.commented_line = Some(right_of_line.trim().into());
 
             if left_of_line.trim().is_empty() {
                 return;
             }
 
             // TODO: The code line need to be transformed
-            self.code_line = Some(left_of_line);
+            self.code_line = Some(left_of_line.into());
             self.prog_type = ProgrammingLineType::CodeWithComment;
         }
     }
@@ -374,7 +369,7 @@ impl ProgrammingLine {
             _ => return,
         }
 
-        self.commented_line = Some(self.original_line.trim());
+        self.commented_line = Some(self.original_line.trim().into());
     }
 
     fn set_if_code(&mut self) {
@@ -383,7 +378,7 @@ impl ProgrammingLine {
         }
 
         // TODO: The code line need to be transformed
-        self.code_line = Some(self.original_line.as_str());
+        self.code_line = Some(self.original_line.as_str().into());
     }
 
     fn set_if_contain_strings(&mut self, lang: &ProgrammingLanguage) {
@@ -408,7 +403,8 @@ impl ProgrammingLine {
                 break;
             }
 
-            self.string_line[index] = Some(string_line_slices[index].unwrap());
+            // TODO:: Should handle this unwrap
+            self.string_line[index] = Some(string_line_slices[index].unwrap().into());
 
             index += 1;
         }
@@ -435,16 +431,18 @@ impl ProgrammingLine {
         self.hash = hasher.finish();
     }
 
+    // TODO:Should throw warning if it is None
     pub fn get_comment(&self) -> &str {
         return match self.commented_line {
-            Some(cmt) => cmt.as_str(),
+            Some(ref cmt) => cmt,
             None => "",
         };
     }
 
+    // TODO:Should throw warning if it is None
     pub fn get_code(&self) -> &str {
         return match self.code_line {
-            Some(code_ln) => code_ln.as_str(),
+            Some(ref code_ln) => code_ln,
             None => "",
         };
     }
@@ -475,20 +473,5 @@ impl ProgrammingLine {
             crate::programming_lang::ProgrammingLineType::CodeWithStringWithComment => true,
             _ => false,
         };
-    }
-
-    //TODO: Find better method name
-    pub fn debug_ptrs(&self) -> (Option<&str>, Option<&str>) {
-        let code_line = match self.code_line {
-            Some(code_ln) => Some(unsafe { &*code_ln }),
-            None => None,
-        };
-
-        let commented_line = match self.commented_line {
-            Some(cmt_ln) => Some(unsafe { &*cmt_ln }),
-            None => None,
-        };
-
-        return (code_line, commented_line);
     }
 }

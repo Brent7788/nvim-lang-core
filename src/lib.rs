@@ -37,19 +37,22 @@ fn main() -> Result<Dictionary> {
 
     let process_file = move |file_path: String| {
         info!("Process file {file_path}");
-
-        let handler: JoinHandle<Result<NvimLanguageFile>> = tokio_runtime.spawn(async move {
-            return nvim_lang_core.process_file(file_path).await;
-        });
-
-        let nvim_lang_file = tokio_runtime
-            .block_on(handler)
-            .expect("Something went wrong!");
-
-        return nvim_lang_file;
+        //
+        // let handler: JoinHandle<Result<NvimLanguageFile>> = tokio_runtime.spawn(async move {
+        //     return nvim_lang_core.process_file(file_path).await;
+        // });
+        //
+        // let nvim_lang_file = tokio_runtime
+        //     .block_on(handler)
+        //     .expect("Something went wrong!");
+        // //
+        // return nvim_lang_file;
+        return Result::Ok(NvimLanguageFile::new());
     };
 
     let pr = Function::from_fn_once(process_file);
 
     return Ok(Dictionary::from_iter([("process", Object::from(pr))]));
 }
+
+// fn main() {}

@@ -19,7 +19,7 @@ pub mod code_string_tests {
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path).await;
+        let result = core.process_file(file_path).await.unwrap();
 
         Expected::data_len_to_be(4, &result);
         Expected::new(2, 5, 6, 1, "a", vec!["A"]).assert(0, &result);
@@ -37,7 +37,7 @@ pub mod code_string_tests {
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path).await;
+        let result = core.process_file(file_path).await.unwrap();
 
         debug!("{:#?}", result);
         log::logger().flush();

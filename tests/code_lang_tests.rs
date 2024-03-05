@@ -19,7 +19,7 @@ pub mod code_lang_tests {
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path).await;
+        let result = core.process_file(file_path).await.unwrap();
 
         // info!("{:#?}", result);
 
@@ -39,7 +39,7 @@ pub mod code_lang_tests {
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path).await;
+        let result = core.process_file(file_path).await.unwrap();
 
         // info!("{:#?}", result);
 
