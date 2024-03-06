@@ -1,5 +1,6 @@
-use log::{debug, error, info, warn};
+use log::{error, info, warn};
 use reqwest::{Client, StatusCode};
+use tokio::runtime::Runtime;
 
 use crate::modules::LangTool;
 
@@ -7,7 +8,8 @@ use crate::modules::LangTool;
 pub struct LangToolClient {
     pub languagetool_url: String,
     pub language: String,
-    pub client: Client,
+    pub tokio_runtime: Option<Runtime>,
+    client: Client,
 }
 
 impl LangToolClient {
@@ -24,32 +26,54 @@ impl LangToolClient {
             language = lang;
         }
 
+        info!("Starting Up Tokio Runtime...");
+
+        let tokio_runtime = Runtime::new();
+
+        let tokio_runtime = match tokio_runtime {
+            Ok(tokio_runtime) => Some(tokio_runtime),
+            Err(e) => {
+                error!("Unable to start up Tokio Runtime {:#?}", e);
+                None
+            }
+        };
+
         return LangToolClient {
             languagetool_url,
             language,
             client,
+            tokio_runtime,
         };
     }
 
-    pub async fn get_lang_tool(&self, text: &str) -> Option<LangTool> {
+    pub fn get_lang_tool(&self, text: &str) -> Option<LangTool> {
         if text.is_empty() {
             return None;
         }
 
         let url = self.languagetool_url.clone() + "/v2/check";
-        let res = self
+
+        let tokio_runtime = self
+            .tokio_runtime
+            .as_ref()
+            .expect("This should never panic!");
+
+        let response_task = self
             .client
             .post(url)
             .form(&[("text", text), ("language", self.language.as_str())])
-            .send()
-            .await;
+            .send();
 
-        match res {
+        let response = tokio_runtime.block_on(response_task);
+
+        match response {
             Ok(res) => {
                 let status = res.status();
 
                 //TODO: Need to handler error
-                let text = res.text().await.expect("Request error, Unable to get text");
+                let text = tokio_runtime
+                    .block_on(res.text())
+                    .expect("Request error, Unable to get text");
 
                 if !matches!(status, StatusCode::OK) {
                     warn!("Something wrong in this text: {}", text);

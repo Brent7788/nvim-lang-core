@@ -11,15 +11,15 @@ pub mod code_string_tests {
         nvim_lang_core::NvimLangCore,
     };
 
-    #[tokio::test]
-    async fn simple_string_should_be() {
+    #[test]
+    fn simple_string_should_be() {
         env::set_var("RUST_BACKTRACE", "1");
 
         let file_path = get_test_code_string_path("/simple_string.rs");
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path).await.unwrap();
+        let result = core.process_file(file_path).unwrap();
 
         Expected::data_len_to_be(4, &result);
         Expected::new(2, 5, 6, 1, "a", vec!["A"]).assert(0, &result);
@@ -28,8 +28,8 @@ pub mod code_string_tests {
         Expected::new(2, 82, 88, 2, "prduct", vec!["product"]).assert(3, &result);
     }
 
-    #[tokio::test]
-    async fn multiple_strings_should_be() {
+    #[test]
+    fn multiple_strings_should_be() {
         Logger::console_init();
         env::set_var("RUST_BACKTRACE", "1");
 
@@ -37,7 +37,7 @@ pub mod code_string_tests {
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path).await.unwrap();
+        let result = core.process_file(file_path).unwrap();
 
         debug!("{:#?}", result);
         log::logger().flush();

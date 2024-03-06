@@ -11,15 +11,15 @@ pub mod code_lang_tests {
         nvim_lang_core::NvimLangCore,
     };
 
-    #[tokio::test]
-    async fn simple_code_should_be() {
+    #[test]
+    fn simple_code_should_be() {
         env::set_var("RUST_BACKTRACE", "1");
 
         let file_path = get_test_code_path("/simple_code.rs");
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path).await.unwrap();
+        let result = core.process_file(file_path).unwrap();
 
         // info!("{:#?}", result);
 
@@ -30,8 +30,8 @@ pub mod code_lang_tests {
         Expected::new(1, 16, 22, 2, "prduct", vec!["product", "pr duct"]).assert(1, &result);
     }
 
-    #[tokio::test]
-    async fn multiple_code_should_be() {
+    #[test]
+    fn multiple_code_should_be() {
         Logger::console_init();
         env::set_var("RUST_BACKTRACE", "1");
 
@@ -39,7 +39,7 @@ pub mod code_lang_tests {
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path).await.unwrap();
+        let result = core.process_file(file_path).unwrap();
 
         // info!("{:#?}", result);
 

@@ -1,4 +1,4 @@
-use log::{debug, warn};
+use log::{debug, error, info, warn};
 use nvim_oxi::Result;
 
 use crate::lang_tool::LanguageToolFile;
@@ -21,7 +21,11 @@ impl<'lang> NvimLangCore<'lang> {
     }
 
     // TODO: Find better method name.
-    pub async fn process_file(&self, file_path: String) -> Result<NvimLanguageFile> {
+    pub fn process_file(&self, file_path: String) -> Result<NvimLanguageFile> {
+        if let None = self.lang_tool_client.tokio_runtime {
+            return Ok(NvimLanguageFile::new());
+        }
+
         if file_path.is_empty() {
             warn!("No file path was provided");
             return Ok(NvimLanguageFile::new());
@@ -40,7 +44,7 @@ impl<'lang> NvimLangCore<'lang> {
 
         let prog_file = ProgrammingFile::create(&file_path, &lang);
 
-        let lang_tool_file = LanguageToolFile::new(&prog_file, &self.lang_tool_client).await;
+        let lang_tool_file = LanguageToolFile::new(&prog_file, &self.lang_tool_client);
 
         // debug!("LANG FILE: {:#?}", lang_tool_file.code);
 

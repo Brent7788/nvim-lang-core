@@ -15,29 +15,29 @@ pub mod tests {
         nvim_lang_core::NvimLangCore,
     };
 
-    #[tokio::test]
-    async fn simple_comment_should_be() {
+    #[test]
+    fn simple_comment_should_be() {
         env::set_var("RUST_BACKTRACE", "1");
 
         let file_path = get_test_comment_path("/simple_one_line_comment.rs");
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path).await.unwrap();
+        let result = core.process_file(file_path).unwrap();
 
         Expected::data_len_to_be(1, &result);
         Expected::new(1, 10, 15, 6, "simle", vec!["simple", "smile", "simile"]).assert(0, &result);
     }
 
-    #[tokio::test]
-    async fn multiple_comment_should_be() {
+    #[test]
+    fn multiple_comment_should_be() {
         env::set_var("RUST_BACKTRACE", "1");
 
         let file_path = get_test_comment_path("/multiple_comments.rs");
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path).await.unwrap();
+        let result = core.process_file(file_path).unwrap();
 
         log::logger().flush();
 
@@ -50,15 +50,15 @@ pub mod tests {
         Expected::new(4, 79, 85, 2, "prduct", vec!["product"]).assert(5, &result);
     }
 
-    #[tokio::test]
-    async fn comment_block_should_be() {
+    #[test]
+    fn comment_block_should_be() {
         env::set_var("RUST_BACKTRACE", "1");
 
         let file_path = get_test_comment_path("/comment_block.rs");
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path).await.unwrap();
+        let result = core.process_file(file_path).unwrap();
 
         log::logger().flush();
 
@@ -71,8 +71,8 @@ pub mod tests {
         Expected::new(4, 77, 83, 2, "prduct", vec!["product"]).assert(5, &result);
     }
 
-    #[tokio::test]
-    async fn full_comment_should_be() {
+    #[test]
+    fn full_comment_should_be() {
         Logger::console_init();
         env::set_var("RUST_BACKTRACE", "1");
 
@@ -80,7 +80,7 @@ pub mod tests {
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path).await.unwrap();
+        let result = core.process_file(file_path).unwrap();
 
         // info!("{:#?}", result);
 

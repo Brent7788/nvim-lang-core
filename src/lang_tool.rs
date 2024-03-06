@@ -45,13 +45,13 @@ pub struct LanguageToolFile<'ltf> {
 }
 
 impl<'ltf> LanguageToolFile<'ltf> {
-    pub async fn new(
+    pub fn new(
         prog_file: &'ltf ProgrammingFile<'ltf>,
         client: &LangToolClient,
     ) -> LanguageToolFile<'ltf> {
         return LanguageToolFile {
             prog_file,
-            lines: LanguageToolLines::generate(prog_file, client).await,
+            lines: LanguageToolLines::generate(prog_file, client),
         };
     }
 }
@@ -75,7 +75,7 @@ pub struct LanguageToolLines<'ltl> {
 }
 
 impl<'ltl> LanguageToolLines<'ltl> {
-    async fn generate(
+    fn generate(
         prog_file: &'ltl ProgrammingFile<'ltl>,
         client: &LangToolClient,
     ) -> Vec<LanguageToolLines<'ltl>> {
@@ -85,9 +85,9 @@ impl<'ltl> LanguageToolLines<'ltl> {
 
         let mut lang_tool_lines: Vec<LanguageToolLines> = Vec::with_capacity(lang_tool_lines_count);
 
-        lang_tool_lines.push_if_comments(prog_file, client).await;
-        lang_tool_lines.push_if_code(prog_file, client).await;
-        lang_tool_lines.push_if_strings(prog_file, client).await;
+        lang_tool_lines.push_if_comments(prog_file, client);
+        lang_tool_lines.push_if_code(prog_file, client);
+        lang_tool_lines.push_if_strings(prog_file, client);
 
         return lang_tool_lines;
     }
@@ -114,26 +114,14 @@ impl<'ltl> LanguageToolLines<'ltl> {
 }
 
 trait LanguageToolLinesVecTrait<'ltl> {
-    async fn push_if_comments(
-        &mut self,
-        prog_file: &'ltl ProgrammingFile<'ltl>,
-        client: &LangToolClient,
-    );
+    fn push_if_comments(&mut self, prog_file: &'ltl ProgrammingFile<'ltl>, client: &LangToolClient);
 
-    async fn push_if_code(
-        &mut self,
-        prog_file: &'ltl ProgrammingFile<'ltl>,
-        client: &LangToolClient,
-    );
-    async fn push_if_strings(
-        &mut self,
-        prog_file: &'ltl ProgrammingFile<'ltl>,
-        client: &LangToolClient,
-    );
+    fn push_if_code(&mut self, prog_file: &'ltl ProgrammingFile<'ltl>, client: &LangToolClient);
+    fn push_if_strings(&mut self, prog_file: &'ltl ProgrammingFile<'ltl>, client: &LangToolClient);
 }
 
 impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
-    async fn push_if_comments(
+    fn push_if_comments(
         &mut self,
         prog_file: &'ltl ProgrammingFile<'ltl>,
         client: &LangToolClient,
@@ -150,7 +138,7 @@ impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
 
         for prog_line in &prog_file.lines {
             if !prog_line.is_line_comment() && !comment.is_comment_empty(&full_comment) {
-                comment.lang_tool = client.get_lang_tool(&full_comment).await;
+                comment.lang_tool = client.get_lang_tool(&full_comment);
                 comment.tp = LanguageToolLinesType::Comment;
                 self.push(comment);
 
@@ -180,18 +168,14 @@ impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
 
         if comment.prog_lines.len() > 0 {
             comment.tp = LanguageToolLinesType::Comment;
-            comment.lang_tool = client.get_lang_tool(&full_comment).await;
+            comment.lang_tool = client.get_lang_tool(&full_comment);
             self.push(comment);
         }
 
         // info!("COMMENT: {:#?}", comments);
     }
 
-    async fn push_if_code(
-        &mut self,
-        prog_file: &'ltl ProgrammingFile<'ltl>,
-        client: &LangToolClient,
-    ) {
+    fn push_if_code(&mut self, prog_file: &'ltl ProgrammingFile<'ltl>, client: &LangToolClient) {
         // TODO: Should limit processed char count to 5000, if 5000 create new Code.
         // TODO: Need to find a way to use Vec::with_capacity.
         //       Maybe on the ProgrammingFile predetermine/count comment, code and string line
@@ -239,7 +223,7 @@ impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
         }
         // debug!("CODE: {:#?}", code);
 
-        code.lang_tool = client.get_lang_tool(&processed_code).await;
+        code.lang_tool = client.get_lang_tool(&processed_code);
 
         // debug!("CODE: {:#?}", code);
 
@@ -247,11 +231,7 @@ impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
         self.push(code);
     }
 
-    async fn push_if_strings(
-        &mut self,
-        prog_file: &'ltl ProgrammingFile<'ltl>,
-        client: &LangToolClient,
-    ) {
+    fn push_if_strings(&mut self, prog_file: &'ltl ProgrammingFile<'ltl>, client: &LangToolClient) {
         for line in &prog_file.lines {
             if !line.is_code_string_line() {
                 continue;
@@ -270,7 +250,7 @@ impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
                 self.push(LanguageToolLines {
                     prog_lines: vec![line],
                     line_end_offset: Vec::with_capacity(0),
-                    lang_tool: client.get_lang_tool(str_line).await,
+                    lang_tool: client.get_lang_tool(str_line),
                     tp: LanguageToolLinesType::String,
                 });
             }
