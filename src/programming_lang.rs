@@ -1,5 +1,4 @@
 use std::{
-    char,
     collections::hash_map::DefaultHasher,
     fs::File,
     hash::{Hash, Hasher},
@@ -9,11 +8,9 @@ use std::{
     usize,
 };
 
-use log::{error, info, warn};
+use log::{error, warn};
 
-use crate::common::string::{
-    DelimiterType, StrPointer, StringDelimiterSlice, StringPosition, StringPositionTrait,
-};
+use crate::common::string::{DelimiterType, StringDelimiterSlice};
 
 #[derive(Debug)]
 pub enum ProgrammingLanguageType {

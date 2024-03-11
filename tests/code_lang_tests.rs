@@ -2,14 +2,29 @@
 pub mod code_lang_tests {
     use std::env;
 
-    use log::info;
+    use log::{debug, info};
     use nvim_lang_core::{
         common::{
             logger::Logger,
-            test::{get_test_code_path, Expected},
+            test::{get_bench_path, get_test_code_path, Expected},
         },
         nvim_lang_core::NvimLangCore,
     };
+
+    // #[test]
+    // fn NOTWORING() {
+    //     Logger::console_init();
+    //     env::set_var("RUST_BACKTRACE", "1");
+    //
+    //     let file_path = get_bench_path();
+    //
+    //     let core = NvimLangCore::new(None, None);
+    //
+    //     let result = core.process_file(file_path).unwrap();
+    //
+    //     //        debug!("{:#?}", result);
+    //     log::logger().flush();
+    // }
 
     #[test]
     fn simple_code_should_be() {
@@ -19,9 +34,7 @@ pub mod code_lang_tests {
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path).unwrap();
-
-        // info!("{:#?}", result);
+        let result = core.process_file(file_path);
 
         log::logger().flush();
 
@@ -32,18 +45,13 @@ pub mod code_lang_tests {
 
     #[test]
     fn multiple_code_should_be() {
-        Logger::console_init();
         env::set_var("RUST_BACKTRACE", "1");
 
         let file_path = get_test_code_path("/multiple_code.rs");
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path).unwrap();
-
-        // info!("{:#?}", result);
-
-        log::logger().flush();
+        let result = core.process_file(file_path);
 
         Expected::data_len_to_be(12, &result);
         Expected::new(2, 15, 20, 3, "Foldr", vec!["Fold", "Folder", "Folds"]).assert(0, &result);

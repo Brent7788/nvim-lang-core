@@ -38,6 +38,8 @@ impl LangToolClient {
             }
         };
 
+        info!("Tokio Runtime has Started");
+
         return LangToolClient {
             languagetool_url,
             language,

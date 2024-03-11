@@ -7,6 +7,8 @@ const TEST_COMMENT_PATH: &str = "/comments";
 const TEST_CODE_PATH: &str = "/codes";
 const TEST_STRING_PATH: &str = "/strings";
 
+const BENCH_PATH: &str = "/nvim-lang-core/src/programming_lang.rs";
+
 #[derive(Debug)]
 pub struct Expected<'r> {
     pub ln: usize,
@@ -65,4 +67,8 @@ pub fn get_test_code_path(test_file: &str) -> String {
 
 pub fn get_test_code_string_path(test_file: &str) -> String {
     return String::new() + PROJECT_PATH + TEST_FILE_PATH + TEST_STRING_PATH + test_file;
+}
+
+pub fn get_bench_path() -> String {
+    return String::new() + PROJECT_PATH + BENCH_PATH;
 }

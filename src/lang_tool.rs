@@ -1,7 +1,4 @@
-use log::debug;
-
 use crate::{
-    common::string::StrPointer,
     lang_tool_client::LangToolClient,
     modules::{Context, LangTool, Matche},
     programming_lang::{ProgrammingFile, ProgrammingLine},
@@ -221,7 +218,8 @@ impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
         if processed_code == "Ignore" {
             return;
         }
-        // debug!("CODE: {:#?}", code);
+
+        // debug!("CODE: {:#?}", processed_code);
 
         code.lang_tool = client.get_lang_tool(&processed_code);
 

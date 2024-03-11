@@ -1,8 +1,10 @@
+use std::sync::{Arc, Mutex};
+
 use common::logger::Logger;
-use log::info;
+use log::{error, info};
 use nvim_oxi::{Dictionary, Function, Object, Result};
 
-use crate::nvim_lang_core::NvimLangCore;
+use crate::{nvim_lang::NvimLanguageFile, nvim_lang_core::NvimLangCore};
 
 pub mod common;
 pub mod lang_tool;
@@ -18,16 +20,78 @@ fn main() -> Result<Dictionary> {
     Logger::file_init(None);
 
     info!("Nvim Language Core Starting...");
-    info!("Starting Up Tokio Runtime...");
 
-    let nvim_lang_core = NvimLangCore::new(None, None);
+    let nvim_lang_core = Arc::new(NvimLangCore::new(None, None));
+    let nvim_lang_file: Arc<Mutex<Option<NvimLanguageFile>>> = Arc::new(Mutex::new(None));
+    let nvim_lang_file_cp = nvim_lang_file.clone();
 
-    let process_file = move |file_path: String| {
-        info!("Process file {file_path}");
-        return nvim_lang_core.process_file(file_path);
+    let start_processing_fn = move |file_path: String| {
+        info!("Start Processing file {file_path}");
+
+        log::logger().flush();
+
+        let tokio_runtime = nvim_lang_core
+            .lang_tool_client
+            .tokio_runtime
+            .as_ref()
+            .unwrap();
+
+        let nvim_lang_file = nvim_lang_file.clone();
+        let nvim_lang_core = nvim_lang_core.clone();
+
+        tokio_runtime.spawn_blocking(move || {
+            let nvim_lang_file_p = nvim_lang_core.process_file(file_path);
+
+            let mut nvim_lang_file_gard = match nvim_lang_file.lock() {
+                Ok(l) => l,
+                Err(e) => {
+                    error!(
+                        "Error locking the nvim language file in start processing! {:#?}",
+                        e
+                    );
+                    return;
+                }
+            };
+
+            info!("Done Processing file {}", nvim_lang_file_p.file_path);
+            match *nvim_lang_file_gard {
+                Some(_) => return,
+                None => {
+                    *nvim_lang_file_gard = Some(nvim_lang_file_p);
+                }
+            };
+        });
+
+        return Result::Ok(());
     };
 
-    let pr = Function::from_fn_once(process_file);
+    let check_process = move |()| {
+        log::logger().flush();
 
-    return Ok(Dictionary::from_iter([("process", Object::from(pr))]));
+        let mut nvim_lang_file_gard = match nvim_lang_file_cp.try_lock() {
+            Ok(l) => l,
+            Err(e) => {
+                info!("nvim language file is busy processing {:#?}", e);
+                log::logger().flush();
+                return Result::Ok(None);
+            }
+        };
+
+        let nvim_lang_file_dest =
+            std::mem::replace::<Option<NvimLanguageFile>>(&mut *nvim_lang_file_gard, None);
+
+        return Result::Ok(nvim_lang_file_dest);
+    };
+
+    info!("Nvim Language Core has Started");
+
+    log::logger().flush();
+
+    let pr = Function::from_fn(start_processing_fn);
+    let cpr = Function::from_fn(check_process);
+
+    return Ok(Dictionary::from_iter([
+        ("start_processing", Object::from(pr)),
+        ("check_process", Object::from(cpr)),
+    ]));
 }

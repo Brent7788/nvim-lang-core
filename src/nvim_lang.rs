@@ -131,6 +131,7 @@ impl NvimLanguageFile {
                             .replacements
                             .iter()
                             .map(|r| r.value.clone())
+                            .take(10)
                             .collect(), // TODO: There should be max limit on the options!
                     },
                     data_type: NvimLangLineType::get_type(&lang_match.rule.category),
@@ -182,6 +183,7 @@ impl NvimLanguageFile {
                             .replacements
                             .iter()
                             .map(|r| r.value.clone())
+                            .take(20)
                             .collect(), // TODO: There should be max limit on the options!
                     },
                     data_type: NvimLangLineType::get_type(&lang_match.rule.category),
@@ -224,6 +226,7 @@ impl NvimLanguageFile {
                             .replacements
                             .iter()
                             .map(|r| r.value.clone())
+                            .take(20)
                             .collect(), // TODO: There should be max limit on the options!
                     },
                     data_type: NvimLangLineType::get_type(&lang_match.rule.category),
