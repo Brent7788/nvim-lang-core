@@ -22,6 +22,7 @@ pub struct NvimLanguageFile {
     pub nvim_lang_lines: Vec<NvimLanguageLine>,
 }
 
+// TODO: Object traits should not be implemented here!
 impl FromObject for NvimLanguageFile {
     fn from_object(object: nvim_oxi::Object) -> Result<Self, nvim_oxi::conversion::Error> {
         return Self::deserialize(Deserializer::new(object)).map_err(Into::into);

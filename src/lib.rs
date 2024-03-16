@@ -12,6 +12,7 @@ pub mod lang_tool_client;
 pub mod modules;
 pub mod nvim_lang;
 pub mod nvim_lang_core;
+pub mod nvim_lang_dictionary;
 pub mod programming_lang;
 
 #[nvim_oxi::module]
