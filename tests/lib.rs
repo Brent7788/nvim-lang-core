@@ -34,8 +34,6 @@ pub mod tests {
 
         let result = core.process_file(file_path);
 
-        log::logger().flush();
-
         Expected::data_len_to_be(6, &result);
         Expected::new(1, 16, 26, 1, "commmented", vec!["commented"]).assert(0, &result);
         Expected::new(2, 21, 29, 2, "invoving", vec!["involving", "invoking"]).assert(1, &result);
@@ -54,8 +52,6 @@ pub mod tests {
         let core = NvimLangCore::new(None, None);
 
         let result = core.process_file(file_path);
-
-        log::logger().flush();
 
         Expected::data_len_to_be(6, &result);
         Expected::new(1, 17, 27, 1, "commmented", vec!["commented"]).assert(0, &result);

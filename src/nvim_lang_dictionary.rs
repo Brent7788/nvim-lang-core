@@ -1,9 +1,9 @@
 use std::{
     fs::{File, OpenOptions},
-    io::{BufRead, BufReader, IoSlice, Write},
+    io::{BufRead, BufReader, Write},
 };
 
-use log::{error, info, warn};
+use log::{error, info};
 
 #[derive(Debug)]
 pub struct NvimLanguageDictionary<'nld> {
@@ -19,9 +19,13 @@ impl<'nld> NvimLanguageDictionary<'nld> {
         };
     }
 
+    pub fn get_words(&self) -> Vec<String> {
+        return self.words.clone();
+    }
+
     pub fn append_word(&mut self, word: String) {
         // TODO: Check if the word exit before adding.
-        let mut file = match File::open(self.file_name) {
+        let mut file = match OpenOptions::new().append(true).open(self.file_name) {
             Ok(file) => file,
             Err(e) => {
                 error!("Unable to open or create language dictionary {:#?}", e);
@@ -29,7 +33,7 @@ impl<'nld> NvimLanguageDictionary<'nld> {
             }
         };
 
-        if let Err(e) = writeln!(file, "{}", word) {
+        if let Err(e) = file.write(word.as_bytes()) {
             error!(
                 "Unable to append word {} language dictionary {:#?}",
                 word, e
@@ -41,18 +45,54 @@ impl<'nld> NvimLanguageDictionary<'nld> {
     }
 
     pub fn remove_word(&mut self, word: String) {
-        let mut file = match File::open(self.file_name) {
+        let mut file = match File::create(self.file_name) {
             Ok(file) => file,
             Err(e) => {
-                error!("Unable to open or create language dictionary {:#?}", e);
+                error!("Unable to open language dictionary {:#?}", e);
                 return;
             }
         };
+
+        let mut was_removed = false;
+
+        for (i, w) in self.words.iter().enumerate() {
+            if w != &word {
+                continue;
+            }
+
+            self.words.remove(i);
+            was_removed = true;
+            break;
+        }
+
+        if !was_removed {
+            error!(
+                "Unable to remove word '{}' from your language dictionary",
+                word
+            );
+        }
+
+        info!("HELLO: {:?}", self.words_to_string());
+
+        match file.write(self.words_to_string().as_bytes()) {
+            Ok(_) => (),
+            Err(e) => {
+                error!("Unable to write to language dictionary file {:#?}", e);
+            }
+        };
+    }
+
+    fn words_to_string(&mut self) -> String {
+        return self.words.join("\n");
     }
 }
 
 fn get_words_and_create_open_dictionary(file_name: &str) -> Vec<String> {
-    let file = OpenOptions::new().read(true).create(true).open(file_name);
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(file_name);
 
     let file = match file {
         Ok(file) => file,
