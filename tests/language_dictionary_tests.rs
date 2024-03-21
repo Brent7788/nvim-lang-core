@@ -1,11 +1,8 @@
 #[cfg(test)]
 pub mod language_dictionary_tests {
+    use nvim_lang_core::{common::logger::Logger, nvim_lang_dictionary::NvimLanguageDictionary};
     use std::env;
 
-    use log::info;
-    use nvim_lang_core::{common::logger::Logger, nvim_lang_dictionary::NvimLanguageDictionary};
-
-    // WARN: cargo watch loops forever, when running this test in watch mode!
     #[test]
     fn add_remove_should_be() {
         env::set_var("RUST_BACKTRACE", "1");
@@ -13,7 +10,8 @@ pub mod language_dictionary_tests {
 
         let mut nvim_language_dictionary = NvimLanguageDictionary::new();
 
-        info!("{:#?}", nvim_language_dictionary);
+        nvim_language_dictionary.append_word("lang".to_owned());
+        nvim_language_dictionary.append_word("tokio".to_owned());
 
         assert_eq!(2, nvim_language_dictionary.get_words().len());
 
@@ -24,12 +22,15 @@ pub mod language_dictionary_tests {
         assert_eq!(3, words.len());
         assert_eq!("nvim".to_owned(), words[2]);
 
-        info!("{:#?}", nvim_language_dictionary);
-        nvim_language_dictionary.remove_word("nvim".to_owned());
+        nvim_language_dictionary.remove_word("tokio".to_owned());
 
         let words = nvim_language_dictionary.get_words();
 
         assert_eq!(2, words.len());
+        assert_eq!("lang".to_owned(), words[0]);
+        assert_eq!("nvim".to_owned(), words[1]);
+
+        nvim_language_dictionary.remove_word("nvim".to_owned());
 
         log::logger().flush();
     }

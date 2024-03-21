@@ -1,21 +1,39 @@
 use std::{
     fs::{File, OpenOptions},
     io::{BufRead, BufReader, Write},
+    path::PathBuf,
 };
 
-use log::{error, info};
+use home::home_dir;
+use log::{debug, error, info};
 
 #[derive(Debug)]
-pub struct NvimLanguageDictionary<'nld> {
-    file_name: &'nld str,
+pub struct NvimLanguageDictionary {
+    path: PathBuf,
     words: Vec<String>,
 }
 
-impl<'nld> NvimLanguageDictionary<'nld> {
+impl NvimLanguageDictionary {
     pub fn new() -> Self {
+        let mut home_dir = match home_dir() {
+            Some(home_dir) => home_dir,
+            None => {
+                error!("Unable to find home dirictory");
+                return Self {
+                    path: PathBuf::new(),
+                    words: Vec::new(),
+                };
+            }
+        };
+
+        home_dir.push(".local/share/nvim/nvim_language_dictionary.txt");
+
+        debug!("{:#?}", home_dir);
+        let words = get_words_and_create_open_dictionary(&home_dir);
+
         return Self {
-            file_name: "nvim_language_dictionary.txt",
-            words: get_words_and_create_open_dictionary("nvim_language_dictionary.txt"),
+            path: home_dir,
+            words,
         };
     }
 
@@ -24,8 +42,18 @@ impl<'nld> NvimLanguageDictionary<'nld> {
     }
 
     pub fn append_word(&mut self, word: String) {
+        // INFO: Ignore word that already exit
+        for (_, w) in self.words.iter().enumerate() {
+            if w != &word {
+                continue;
+            }
+
+            info!("Word '{}' already exit in your dictionary", word);
+            return;
+        }
+
         // TODO: Check if the word exit before adding.
-        let mut file = match OpenOptions::new().append(true).open(self.file_name) {
+        let mut file = match OpenOptions::new().append(true).open(&self.path) {
             Ok(file) => file,
             Err(e) => {
                 error!("Unable to open or create language dictionary {:#?}", e);
@@ -41,11 +69,12 @@ impl<'nld> NvimLanguageDictionary<'nld> {
             return;
         }
 
+        info!("Word '{}' added to your dictionary", word);
         self.words.push(word);
     }
 
     pub fn remove_word(&mut self, word: String) {
-        let mut file = match File::create(self.file_name) {
+        let mut file = match File::create(&self.path) {
             Ok(file) => file,
             Err(e) => {
                 error!("Unable to open language dictionary {:#?}", e);
@@ -72,10 +101,10 @@ impl<'nld> NvimLanguageDictionary<'nld> {
             );
         }
 
-        info!("HELLO: {:?}", self.words_to_string());
-
         match file.write(self.words_to_string().as_bytes()) {
-            Ok(_) => (),
+            Ok(_) => {
+                info!("Word '{}' was removed from your dictionary", word);
+            }
             Err(e) => {
                 error!("Unable to write to language dictionary file {:#?}", e);
             }
@@ -87,12 +116,12 @@ impl<'nld> NvimLanguageDictionary<'nld> {
     }
 }
 
-fn get_words_and_create_open_dictionary(file_name: &str) -> Vec<String> {
+fn get_words_and_create_open_dictionary(path: &PathBuf) -> Vec<String> {
     let file = OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
-        .open(file_name);
+        .open(path);
 
     let file = match file {
         Ok(file) => file,
