@@ -1,6 +1,9 @@
+use std::sync::MutexGuard;
+
 use crate::{
     lang_tool_client::LangToolClient,
     modules::{Context, LangTool, Matche},
+    nvim_lang_dictionary::NvimLanguageDictionary,
     programming_lang::{ProgrammingFile, ProgrammingLine},
 };
 
@@ -44,11 +47,12 @@ pub struct LanguageToolFile<'ltf> {
 impl<'ltf> LanguageToolFile<'ltf> {
     pub fn new(
         prog_file: &'ltf ProgrammingFile<'ltf>,
+        language_dictionary: &Option<MutexGuard<NvimLanguageDictionary>>,
         client: &LangToolClient,
     ) -> LanguageToolFile<'ltf> {
         return LanguageToolFile {
             prog_file,
-            lines: LanguageToolLines::generate(prog_file, client),
+            lines: LanguageToolLines::generate(prog_file, language_dictionary, client),
         };
     }
 }
@@ -74,6 +78,7 @@ pub struct LanguageToolLines<'ltl> {
 impl<'ltl> LanguageToolLines<'ltl> {
     fn generate(
         prog_file: &'ltl ProgrammingFile<'ltl>,
+        language_dictionary: &Option<MutexGuard<NvimLanguageDictionary>>,
         client: &LangToolClient,
     ) -> Vec<LanguageToolLines<'ltl>> {
         const CODE_COUNT: u64 = 1;
@@ -83,7 +88,7 @@ impl<'ltl> LanguageToolLines<'ltl> {
         let mut lang_tool_lines: Vec<LanguageToolLines> = Vec::with_capacity(lang_tool_lines_count);
 
         lang_tool_lines.push_if_comments(prog_file, client);
-        lang_tool_lines.push_if_code(prog_file, client);
+        lang_tool_lines.push_if_code(prog_file, language_dictionary, client);
         lang_tool_lines.push_if_strings(prog_file, client);
 
         return lang_tool_lines;
@@ -112,8 +117,12 @@ impl<'ltl> LanguageToolLines<'ltl> {
 
 trait LanguageToolLinesVecTrait<'ltl> {
     fn push_if_comments(&mut self, prog_file: &'ltl ProgrammingFile<'ltl>, client: &LangToolClient);
-
-    fn push_if_code(&mut self, prog_file: &'ltl ProgrammingFile<'ltl>, client: &LangToolClient);
+    fn push_if_code(
+        &mut self,
+        prog_file: &'ltl ProgrammingFile<'ltl>,
+        language_dictionary: &Option<MutexGuard<NvimLanguageDictionary>>,
+        client: &LangToolClient,
+    );
     fn push_if_strings(&mut self, prog_file: &'ltl ProgrammingFile<'ltl>, client: &LangToolClient);
 }
 
@@ -172,7 +181,12 @@ impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
         // info!("COMMENT: {:#?}", comments);
     }
 
-    fn push_if_code(&mut self, prog_file: &'ltl ProgrammingFile<'ltl>, client: &LangToolClient) {
+    fn push_if_code(
+        &mut self,
+        prog_file: &'ltl ProgrammingFile<'ltl>,
+        language_dictionary: &Option<MutexGuard<NvimLanguageDictionary>>,
+        client: &LangToolClient,
+    ) {
         // TODO: Should limit processed char count to 5000, if 5000 create new Code.
         // TODO: Need to find a way to use Vec::with_capacity.
         //       Maybe on the ProgrammingFile predetermine/count comment, code and string line
@@ -219,6 +233,9 @@ impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
             return;
         }
 
+        if let Some(language_dictionary) = language_dictionary {
+            processed_code = language_dictionary.replase_with_dictionary_values(processed_code)
+        }
         // debug!("CODE: {:#?}", processed_code);
 
         code.lang_tool = client.get_lang_tool(&processed_code);

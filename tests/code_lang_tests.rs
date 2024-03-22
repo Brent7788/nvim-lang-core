@@ -51,7 +51,7 @@ pub mod code_lang_tests {
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path);
+        let result = core.process_file(file_path, None);
 
         Expected::data_len_to_be(12, &result);
         Expected::new(2, 15, 20, 3, "Foldr", vec!["Fold", "Folder", "Folds"]).assert(0, &result);

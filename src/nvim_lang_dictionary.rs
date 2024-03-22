@@ -7,6 +7,11 @@ use std::{
 use home::home_dir;
 use log::{debug, error, info};
 
+use crate::{
+    lang_tool::LangTooContextTrait,
+    modules::{LangTool, Matche},
+};
+
 #[derive(Debug)]
 pub struct NvimLanguageDictionary {
     path: PathBuf,
@@ -28,7 +33,6 @@ impl NvimLanguageDictionary {
 
         home_dir.push(".local/share/nvim/nvim_language_dictionary.txt");
 
-        debug!("{:#?}", home_dir);
         let words = get_words_and_create_open_dictionary(&home_dir);
 
         return Self {
@@ -109,6 +113,47 @@ impl NvimLanguageDictionary {
                 error!("Unable to write to language dictionary file {:#?}", e);
             }
         };
+    }
+
+    pub fn exit_in_dictionary(&self, value: &str) -> bool {
+        for word in &self.words {
+            if value == word {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    //TODO: Remove
+    pub fn remove_dictionary_values(&self, mut value: Option<LangTool>) -> Option<LangTool> {
+        let lang_tool = match value {
+            Some(value) => value,
+            None => {
+                return value;
+            }
+        };
+
+        let newMatches: Vec<Matche> = Vec::new();
+        let matches = lang_tool.matches;
+        for m in matches {
+            let chunck = m.context.get_incorrect_chunk();
+
+            for word in &self.words {
+                if chunck != word {
+                    // newMatches.push(m);
+                }
+            }
+        }
+        return None;
+    }
+
+    pub fn replase_with_dictionary_values(&self, mut value: String) -> String {
+        for word in &self.words {
+            value = value.replace(word, "");
+        }
+
+        return value;
     }
 
     fn words_to_string(&mut self) -> String {

@@ -1,3 +1,5 @@
+use std::sync::MutexGuard;
+
 use log::{debug, warn};
 use nvim_oxi::{
     conversion::{FromObject, ToObject},
@@ -14,6 +16,7 @@ use crate::{
         LanguageToolLinesType,
     },
     modules::{Category, Matche},
+    nvim_lang_dictionary::NvimLanguageDictionary,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -62,7 +65,10 @@ impl NvimLanguageFile {
     }
 
     // TODO: Find better name
-    pub fn create(lang_tool_file: &LanguageToolFile) -> NvimLanguageFile {
+    pub fn create(
+        lang_tool_file: &LanguageToolFile,
+        language_dictionary: &Option<MutexGuard<NvimLanguageDictionary>>,
+    ) -> NvimLanguageFile {
         let mut nvim_core = NvimLanguageFile {
             file_path: lang_tool_file.prog_file.file_path.to_owned(),
             nvim_lang_lines: Vec::new(),
@@ -75,9 +81,9 @@ impl NvimLanguageFile {
             };
 
             for lang_match in matches {
-                nvim_core.push_if_comments(lang_match, language_tool_lines);
+                nvim_core.push_if_comments(lang_match, language_tool_lines, &language_dictionary);
                 nvim_core.push_if_code(lang_match, language_tool_lines);
-                nvim_core.push_if_strings(lang_match, language_tool_lines);
+                nvim_core.push_if_strings(lang_match, language_tool_lines, &language_dictionary);
             }
         }
 
@@ -88,7 +94,12 @@ impl NvimLanguageFile {
         return self.file_path.is_empty() || self.nvim_lang_lines.is_empty();
     }
 
-    fn push_if_comments(&mut self, lang_match: &Matche, lang_tool_lines: &LanguageToolLines) {
+    fn push_if_comments(
+        &mut self,
+        lang_match: &Matche,
+        lang_tool_lines: &LanguageToolLines,
+        language_dictionary: &Option<MutexGuard<NvimLanguageDictionary>>,
+    ) {
         if !matches!(lang_tool_lines.tp, LanguageToolLinesType::Comment) {
             return;
         }
@@ -102,6 +113,12 @@ impl NvimLanguageFile {
             // TODO: Find better warning message
             warn!("One of the matches is empty");
             return;
+        }
+
+        if let Some(language_dictionary) = language_dictionary {
+            if language_dictionary.exit_in_dictionary(chunk) {
+                return;
+            }
         }
 
         for (index, line) in lang_tool_lines.prog_lines.iter().enumerate() {
@@ -132,8 +149,8 @@ impl NvimLanguageFile {
                             .replacements
                             .iter()
                             .map(|r| r.value.clone())
-                            .take(10)
-                            .collect(), // TODO: There should be max limit on the options!
+                            .take(20)
+                            .collect(),
                     },
                     data_type: NvimLangLineType::get_type(&lang_match.rule.category),
                 });
@@ -185,7 +202,7 @@ impl NvimLanguageFile {
                             .iter()
                             .map(|r| r.value.clone())
                             .take(20)
-                            .collect(), // TODO: There should be max limit on the options!
+                            .collect(),
                     },
                     data_type: NvimLangLineType::get_type(&lang_match.rule.category),
                 });
@@ -193,13 +210,24 @@ impl NvimLanguageFile {
         }
     }
 
-    fn push_if_strings(&mut self, lang_match: &Matche, lang_tool_lines: &LanguageToolLines) {
+    fn push_if_strings(
+        &mut self,
+        lang_match: &Matche,
+        lang_tool_lines: &LanguageToolLines,
+        language_dictionary: &Option<MutexGuard<NvimLanguageDictionary>>,
+    ) {
         if !matches!(lang_tool_lines.tp, LanguageToolLinesType::String) {
             return;
         }
 
         let context = &lang_match.context;
         let chunk = context.get_incorrect_chunk();
+
+        if let Some(language_dictionary) = language_dictionary {
+            if language_dictionary.exit_in_dictionary(chunk) {
+                return;
+            }
+        }
 
         for line in &lang_tool_lines.prog_lines {
             let start_columns = get_target_offsets(&line.original_line, chunk);
@@ -228,7 +256,7 @@ impl NvimLanguageFile {
                             .iter()
                             .map(|r| r.value.clone())
                             .take(20)
-                            .collect(), // TODO: There should be max limit on the options!
+                            .collect(),
                     },
                     data_type: NvimLangLineType::get_type(&lang_match.rule.category),
                 });
@@ -258,72 +286,12 @@ pub struct NvimLanguageLine {
     pub options: NvimOptions,
     pub data_type: NvimLangLineType,
 }
-//
-// impl FromObject for NvimLanguageLine {
-//     fn from_object(object: nvim_oxi::Object) -> Result<Self, nvim_oxi::conversion::Error> {
-//         return Self::deserialize(Deserializer::new(object)).map_err(Into::into);
-//     }
-// }
-//
-// impl ToObject for NvimLanguageLine {
-//     fn to_object(self) -> Result<nvim_oxi::Object, nvim_oxi::conversion::Error> {
-//         return self.serialize(Serializer::new()).map_err(Into::into);
-//     }
-// }
-//
-// impl lua::Poppable for NvimLanguageLine {
-//     unsafe fn pop(lstate: *mut lua::ffi::lua_State) -> Result<Self, lua::Error> {
-//         let obj = Object::pop(lstate)?;
-//         Self::from_object(obj).map_err(lua::Error::pop_error_from_err::<Self, _>)
-//     }
-// }
-//
-// impl Pushable for NvimLanguageLine {
-//     unsafe fn push(
-//         self,
-//         lstate: *mut nvim_oxi::lua::ffi::lua_State,
-//     ) -> Result<std::ffi::c_int, lua::Error> {
-//         self.to_object()
-//             .map_err(lua::Error::push_error_from_err::<Self, _>)?
-//             .push(lstate)
-//     }
-// }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NvimOptions {
     pub original: String,
     pub options: Vec<String>,
 }
-
-// impl FromObject for NvimOptions {
-//     fn from_object(object: nvim_oxi::Object) -> Result<Self, nvim_oxi::conversion::Error> {
-//         return Self::deserialize(Deserializer::new(object)).map_err(Into::into);
-//     }
-// }
-//
-// impl ToObject for NvimOptions {
-//     fn to_object(self) -> Result<nvim_oxi::Object, nvim_oxi::conversion::Error> {
-//         return self.serialize(Serializer::new()).map_err(Into::into);
-//     }
-// }
-//
-// impl lua::Poppable for NvimOptions {
-//     unsafe fn pop(lstate: *mut lua::ffi::lua_State) -> Result<Self, lua::Error> {
-//         let obj = Object::pop(lstate)?;
-//         Self::from_object(obj).map_err(lua::Error::pop_error_from_err::<Self, _>)
-//     }
-// }
-//
-// impl Pushable for NvimOptions {
-//     unsafe fn push(
-//         self,
-//         lstate: *mut nvim_oxi::lua::ffi::lua_State,
-//     ) -> Result<std::ffi::c_int, lua::Error> {
-//         self.to_object()
-//             .map_err(lua::Error::push_error_from_err::<Self, _>)?
-//             .push(lstate)
-//     }
-// }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum NvimLangLineType {

@@ -18,7 +18,7 @@ pub mod tests {
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path);
+        let result = core.process_file(file_path, None);
 
         Expected::data_len_to_be(1, &result);
         Expected::new(1, 10, 15, 6, "simle", vec!["simple", "smile", "simile"]).assert(0, &result);
@@ -32,7 +32,7 @@ pub mod tests {
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path);
+        let result = core.process_file(file_path, None);
 
         Expected::data_len_to_be(6, &result);
         Expected::new(1, 16, 26, 1, "commmented", vec!["commented"]).assert(0, &result);
@@ -51,7 +51,7 @@ pub mod tests {
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path);
+        let result = core.process_file(file_path, None);
 
         Expected::data_len_to_be(6, &result);
         Expected::new(1, 17, 27, 1, "commmented", vec!["commented"]).assert(0, &result);
@@ -71,7 +71,7 @@ pub mod tests {
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path);
+        let result = core.process_file(file_path, None);
 
         // info!("{:#?}", result);
 

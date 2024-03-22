@@ -1,8 +1,11 @@
+use std::sync::MutexGuard;
+
 use log::warn;
 
 use crate::lang_tool::LanguageToolFile;
 use crate::lang_tool_client::LangToolClient;
 use crate::nvim_lang::NvimLanguageFile;
+use crate::nvim_lang_dictionary::NvimLanguageDictionary;
 use crate::programming_lang::{ProgrammingFile, ProgrammingLanguage};
 
 #[derive(Debug)]
@@ -20,7 +23,11 @@ impl<'lang> NvimLangCore<'lang> {
     }
 
     // TODO: Find better method name.
-    pub fn process_file(&self, file_path: String) -> NvimLanguageFile {
+    pub fn process_file(
+        &self,
+        file_path: String,
+        nvim_language_dictionary: Option<MutexGuard<NvimLanguageDictionary>>,
+    ) -> NvimLanguageFile {
         if let None = self.lang_tool_client.tokio_runtime {
             return NvimLanguageFile::new();
         }
@@ -43,9 +50,15 @@ impl<'lang> NvimLangCore<'lang> {
 
         let prog_file = ProgrammingFile::create(&file_path, &lang);
 
-        let lang_tool_file = LanguageToolFile::new(&prog_file, &self.lang_tool_client);
+        let lang_tool_file = LanguageToolFile::new(
+            &prog_file,
+            &nvim_language_dictionary,
+            &self.lang_tool_client,
+        );
 
-        return NvimLanguageFile::create(&lang_tool_file);
+        return NvimLanguageFile::create(&lang_tool_file, &nvim_language_dictionary);
+
+        // return NvimLanguageFile::new();
     }
 
     fn get_file_type(&self, file_path: &String) -> Option<&ProgrammingLanguage> {
