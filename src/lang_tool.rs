@@ -1,5 +1,7 @@
 use std::sync::MutexGuard;
 
+use log::debug;
+
 use crate::{
     lang_tool_client::LangToolClient,
     modules::{Context, LangTool, Matche},
@@ -33,8 +35,8 @@ pub trait LangTooContextTrait {
 impl LangTooContextTrait for Context {
     fn get_incorrect_chunk(&self) -> &str {
         let offset = self.offset;
-        let lenth = self.offset + self.length;
-        return &self.text[offset..lenth];
+        let length = self.offset + self.length;
+        return &self.text[offset..length];
     }
 }
 
@@ -177,10 +179,10 @@ impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
             comment.lang_tool = client.get_lang_tool(&full_comment);
             self.push(comment);
         }
-
-        // info!("COMMENT: {:#?}", comments);
     }
 
+    // TODO: This method does a lot of string(that is on the heap) transformation.
+    //       Find away to do this on the stack.
     fn push_if_code(
         &mut self,
         prog_file: &'ltl ProgrammingFile<'ltl>,
@@ -189,7 +191,7 @@ impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
     ) {
         // TODO: Should limit processed char count to 5000, if 5000 create new Code.
         // TODO: Need to find a way to use Vec::with_capacity.
-        //       Maybe on the ProgrammingFile predetermine/count comment, code and string line
+        //       Maybe on the Programming File predetermine/count comment, code and string line
         let mut code: LanguageToolLines = LanguageToolLines {
             prog_lines: Vec::with_capacity(prog_file.lines.len()),
             line_end_offset: Vec::with_capacity(0),
@@ -214,7 +216,10 @@ impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
             for code_chunk in code_line_split {
                 let code_chunk = code_chunk.trim();
 
-                if code_chunk.is_empty() || prog_file.lang.is_reserved_keyword(code_chunk) {
+                if code_chunk.is_empty()
+                    || code_chunk.len() == 1
+                    || prog_file.lang.is_reserved_keyword(code_chunk)
+                {
                     continue;
                 }
 
@@ -236,6 +241,7 @@ impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
         if let Some(language_dictionary) = language_dictionary {
             processed_code = language_dictionary.replase_with_dictionary_values(processed_code)
         }
+
         // debug!("CODE: {:#?}", processed_code);
 
         code.lang_tool = client.get_lang_tool(&processed_code);
