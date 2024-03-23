@@ -45,7 +45,7 @@ impl NvimLanguageDictionary {
         return self.words.clone();
     }
 
-    pub fn append_word(&mut self, word: String) {
+    pub fn append_word(&mut self, mut word: String) {
         // INFO: Ignore word that already exit
         for (_, w) in self.words.iter().enumerate() {
             if w != &word {
@@ -56,7 +56,6 @@ impl NvimLanguageDictionary {
             return;
         }
 
-        // TODO: Check if the word exit before adding.
         let mut file = match OpenOptions::new().append(true).open(&self.path) {
             Ok(file) => file,
             Err(e) => {
@@ -64,6 +63,8 @@ impl NvimLanguageDictionary {
                 return;
             }
         };
+
+        word = format!("\n{}", word);
 
         if let Err(e) = file.write(word.as_bytes()) {
             error!(
@@ -74,7 +75,7 @@ impl NvimLanguageDictionary {
         }
 
         info!("Word '{}' added to your dictionary", word);
-        self.words.push(word);
+        self.words.push(word.replace("\n", ""));
     }
 
     pub fn remove_word(&mut self, word: String) {
@@ -125,35 +126,22 @@ impl NvimLanguageDictionary {
         return false;
     }
 
-    //TODO: Remove
-    pub fn remove_dictionary_values(&self, mut value: Option<LangTool>) -> Option<LangTool> {
-        let lang_tool = match value {
-            Some(value) => value,
-            None => {
-                return value;
-            }
-        };
+    pub fn replase_with_dictionary_values(&self, value: String) -> String {
+        let values = value.split_whitespace();
+        let mut new_value = String::with_capacity(value.len());
 
-        let newMatches: Vec<Matche> = Vec::new();
-        let matches = lang_tool.matches;
-        for m in matches {
-            let chunck = m.context.get_incorrect_chunk();
-
+        'v: for value in values {
             for word in &self.words {
-                if chunck != word {
-                    // newMatches.push(m);
+                if value == word {
+                    continue 'v;
                 }
             }
-        }
-        return None;
-    }
 
-    pub fn replase_with_dictionary_values(&self, mut value: String) -> String {
-        for word in &self.words {
-            value = value.replace(word, "");
+            new_value.push_str(value);
+            new_value.push(' ');
         }
 
-        return value;
+        return new_value;
     }
 
     fn words_to_string(&mut self) -> String {

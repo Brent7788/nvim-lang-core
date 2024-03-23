@@ -87,8 +87,8 @@ impl<'lang> ProgrammingLanguage<'lang> {
                     "while", "str",
                 ],
                 operators_and_syntax: vec![
-                    "+", "-", "*", "/", "%", "=", "!", ">", "<", "&", "^", "/=", "%=", "(", ")",
-                    "{", "}", "[", "]", ";", ":", ",", "..", ".", "#",
+                    "_", "+", "-", "*", "/", "%", "=", "!", ">", "<", "&", "|", "'", "^", "/=",
+                    "%=", "(", ")", "{", "}", "[", "]", ";", ":", ",", "..", ".", "#",
                 ],
                 naming_convetions: [NamingConvetionType::PascalCase, NamingConvetionType::None],
                 lang_type: ProgrammingLanguageType::Rust,
