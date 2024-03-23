@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
 
 use common::logger::Logger;
 use log::{error, info};
@@ -46,10 +46,8 @@ fn main() -> Result<Dictionary> {
         let nvim_lang_core = nvim_lang_core_start_processing.clone();
 
         tokio_runtime.spawn_blocking(move || {
-            // TODO: Should handel the lock, if the lock failes defailt to new Dictionary
-
-            let nvim_language_dictionary_gard = match nvim_language_dictionary.lock() {
-                Ok(gard) => Some(gard),
+            let nvim_language_dictionary_guard = match nvim_language_dictionary.lock() {
+                Ok(guard) => Some(guard),
                 Err(e) => {
                     error!(
                         "Error locking the nvim language dictionary in remove word! {:#?}",
@@ -60,7 +58,7 @@ fn main() -> Result<Dictionary> {
             };
 
             let nvim_lang_file_p =
-                nvim_lang_core.process_file(file_path, nvim_language_dictionary_gard);
+                nvim_lang_core.process_file(file_path, nvim_language_dictionary_guard);
 
             let mut nvim_lang_file_gard = match nvim_lang_file.lock() {
                 Ok(l) => l,

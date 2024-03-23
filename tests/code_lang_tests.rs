@@ -34,7 +34,7 @@ pub mod code_lang_tests {
 
         let core = NvimLangCore::new(None, None);
 
-        let result = core.process_file(file_path);
+        let result = core.process_file(file_path, None);
 
         log::logger().flush();
 

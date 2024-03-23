@@ -303,7 +303,7 @@ pub enum NvimLangLineType {
     Grammar,
     Misc,
     Semantics,
-    Typograph,
+    Typography,
     Other,
 }
 
@@ -318,7 +318,7 @@ impl NvimLangLineType {
             "GRAMMAR" => NvimLangLineType::Grammar,
             "MISC" => NvimLangLineType::Misc,
             "SEMANTICS" => NvimLangLineType::Semantics,
-            "TYPOGRAPHY" => NvimLangLineType::Typograph,
+            "TYPOGRAPHY" => NvimLangLineType::Typography,
             _ => NvimLangLineType::Other,
         };
     }

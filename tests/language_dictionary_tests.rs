@@ -1,5 +1,6 @@
 #[cfg(test)]
 pub mod language_dictionary_tests {
+    use log::info;
     use nvim_lang_core::{common::logger::Logger, nvim_lang_dictionary::NvimLanguageDictionary};
     use std::env;
 
@@ -12,13 +13,20 @@ pub mod language_dictionary_tests {
 
         nvim_language_dictionary.append_word("lang".to_owned());
         nvim_language_dictionary.append_word("tokio".to_owned());
+        nvim_language_dictionary.remove_word("tokio".to_owned());
+        nvim_language_dictionary.append_word("tokio".to_owned());
 
+        info!("{:#?}", nvim_language_dictionary);
+        log::logger().flush();
         assert_eq!(2, nvim_language_dictionary.get_words().len());
 
         nvim_language_dictionary.append_word("nvim".to_owned());
 
         let words = nvim_language_dictionary.get_words();
 
+        info!("{:#?}", nvim_language_dictionary);
+        info!("{:#?}", words);
+        log::logger().flush();
         assert_eq!(3, words.len());
         assert_eq!("nvim".to_owned(), words[2]);
 
