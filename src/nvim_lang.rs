@@ -1,5 +1,6 @@
 use std::sync::MutexGuard;
 
+use languagetool_rust::check::{Category, Match};
 use log::{debug, warn};
 use nvim_oxi::{
     conversion::{FromObject, ToObject},
@@ -15,7 +16,6 @@ use crate::{
         LangTooContextTrait, LangToolTrait, LanguageToolFile, LanguageToolLines,
         LanguageToolLinesType,
     },
-    modules::{Category, Matche},
     nvim_lang_dictionary::NvimLanguageDictionary,
 };
 
@@ -96,7 +96,7 @@ impl NvimLanguageFile {
 
     fn push_if_comments(
         &mut self,
-        lang_match: &Matche,
+        lang_match: &Match,
         lang_tool_lines: &LanguageToolLines,
         language_dictionary: &Option<MutexGuard<NvimLanguageDictionary>>,
     ) {
@@ -160,7 +160,7 @@ impl NvimLanguageFile {
         }
     }
 
-    fn push_if_code(&mut self, lang_match: &Matche, lang_tool_lines: &LanguageToolLines) {
+    fn push_if_code(&mut self, lang_match: &Match, lang_tool_lines: &LanguageToolLines) {
         if !matches!(lang_tool_lines.tp, LanguageToolLinesType::Code) {
             return;
         }
@@ -212,7 +212,7 @@ impl NvimLanguageFile {
 
     fn push_if_strings(
         &mut self,
-        lang_match: &Matche,
+        lang_match: &Match,
         lang_tool_lines: &LanguageToolLines,
         language_dictionary: &Option<MutexGuard<NvimLanguageDictionary>>,
     ) {

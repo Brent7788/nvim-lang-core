@@ -5,12 +5,7 @@ use std::{
 };
 
 use home::home_dir;
-use log::{debug, error, info};
-
-use crate::{
-    lang_tool::LangTooContextTrait,
-    modules::{LangTool, Matche},
-};
+use log::{error, info};
 
 #[derive(Debug)]
 pub struct NvimLanguageDictionary {
@@ -19,7 +14,7 @@ pub struct NvimLanguageDictionary {
 }
 
 impl NvimLanguageDictionary {
-    pub fn new() -> Self {
+    pub fn new(testing_only: bool) -> Self {
         let mut home_dir = match home_dir() {
             Some(home_dir) => home_dir,
             None => {
@@ -31,7 +26,11 @@ impl NvimLanguageDictionary {
             }
         };
 
-        home_dir.push(".local/share/nvim/nvim_language_dictionary.txt");
+        if testing_only {
+            home_dir.push(".local/nvim_language_dictionary.txt");
+        } else {
+            home_dir.push(".local/share/nvim/nvim_language_dictionary.txt");
+        }
 
         let words = get_words_and_create_open_dictionary(&home_dir);
 

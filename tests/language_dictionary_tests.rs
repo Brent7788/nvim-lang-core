@@ -9,7 +9,7 @@ pub mod language_dictionary_tests {
         env::set_var("RUST_BACKTRACE", "1");
         Logger::console_init();
 
-        let mut nvim_language_dictionary = NvimLanguageDictionary::new();
+        let mut nvim_language_dictionary = NvimLanguageDictionary::new(true);
 
         nvim_language_dictionary.append_word("lang".to_owned());
         nvim_language_dictionary.append_word("tokio".to_owned());

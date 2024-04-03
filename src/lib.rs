@@ -27,7 +27,7 @@ fn main() -> Result<Dictionary> {
     let nvim_lang_core = Arc::new(NvimLangCore::new(None, None));
     let nvim_lang_core_start_processing = nvim_lang_core.clone();
     let nvim_lang_file: Arc<Mutex<Option<NvimLanguageFile>>> = Arc::new(Mutex::new(None));
-    let nvim_language_dictionary = Arc::new(Mutex::new(NvimLanguageDictionary::new()));
+    let nvim_language_dictionary = Arc::new(Mutex::new(NvimLanguageDictionary::new(false)));
     let nvim_language_dictionary_start_processing = nvim_language_dictionary.clone();
     let nvim_lang_file_cp = nvim_lang_file.clone();
 

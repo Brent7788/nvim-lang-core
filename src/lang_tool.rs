@@ -1,20 +1,24 @@
 use std::sync::MutexGuard;
 
-use log::debug;
+use languagetool_rust::{
+    check::{Context, Match},
+    CheckResponse,
+};
+use log::{debug, info};
 
 use crate::{
     lang_tool_client::LangToolClient,
-    modules::{Context, LangTool, Matche},
+    modules::{LangTool, Matche},
     nvim_lang_dictionary::NvimLanguageDictionary,
     programming_lang::{ProgrammingFile, ProgrammingLine},
 };
 
 pub trait LangToolTrait {
-    fn get_matches(&self) -> Option<&Vec<Matche>>;
+    fn get_matches(&self) -> Option<&Vec<Match>>;
 }
 
-impl LangToolTrait for Option<LangTool> {
-    fn get_matches(&self) -> Option<&Vec<Matche>> {
+impl LangToolTrait for Option<CheckResponse> {
+    fn get_matches(&self) -> Option<&Vec<Match>> {
         return match self {
             Some(ref lang_tool) => {
                 if lang_tool.matches.is_empty() {
@@ -73,7 +77,7 @@ pub struct LanguageToolLines<'ltl> {
     //       Maybe on the ProgrammingFile predetermine/count comment, code and string line
     pub prog_lines: Vec<&'ltl ProgrammingLine>,
     pub line_end_offset: Vec<usize>,
-    pub lang_tool: Option<LangTool>,
+    pub lang_tool: Option<CheckResponse>,
     pub tp: LanguageToolLinesType,
 }
 
