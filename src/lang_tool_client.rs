@@ -1,5 +1,5 @@
-use languagetool_rust::{CheckRequest, CheckResponse, ServerClient};
-use log::{error, info};
+use languagetool_rust::{error::Result, CheckRequest, CheckResponse, ServerClient};
+use log::{error, info, warn};
 use tokio::runtime::Runtime;
 
 #[derive(Debug)]
@@ -10,7 +10,7 @@ pub struct LangToolClient {
 }
 
 impl LangToolClient {
-    pub fn new(lang_tool_url: Option<String>, lang: Option<String>) -> Self {
+    pub fn new(_lang_tool_url: Option<String>, lang: Option<String>) -> Self {
         let mut language: String = "en-US".to_owned();
 
         if let Some(lang) = lang {
@@ -33,10 +33,12 @@ impl LangToolClient {
 
         return LangToolClient {
             language,
-            client: ServerClient::from_env_or_default().with_max_suggestions(20),
+            client: get_language_tool_client(&tokio_runtime),
             tokio_runtime,
         };
     }
+
+    pub fn docker_setup(&self) {}
 
     pub fn get_lang_tool(&self, text: &str) -> Option<CheckResponse> {
         if text.is_empty() {
@@ -66,6 +68,28 @@ impl LangToolClient {
             }
         }
     }
+}
+
+fn get_language_tool_client(tokio_runtime: &Option<Runtime>) -> ServerClient {
+    let tokio_runtime = match tokio_runtime {
+        Some(tokio_runtime) => tokio_runtime,
+        None => return ServerClient::default(),
+    };
+
+    return match ServerClient::from_env() {
+        Ok(client) => {
+            if let Result::Err(e) = tokio_runtime.block_on(client.ping()) {
+                warn!("Unable to start Language Tool Client. Pinning Language Tool Server fialed with this error: {:#?}", e);
+                return ServerClient::default();
+            }
+
+            client
+        }
+        Err(e) => {
+            warn!("Unable to start Language Tool Client. Enviroment veriable might not be set. Error: {:#?}", e);
+            ServerClient::default()
+        }
+    };
 }
 
 // TODO: Might need this in the feature. If not remove.
