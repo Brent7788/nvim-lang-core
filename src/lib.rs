@@ -36,6 +36,7 @@ fn main() -> Result<Dictionary> {
 
         log::logger().flush();
         let nvim_language_dictionary = nvim_language_dictionary_start_processing.clone();
+        // TODO: Need to handle this unwrap
         let tokio_runtime = nvim_lang_core_start_processing
             .lang_tool_client
             .tokio_runtime
@@ -99,6 +100,24 @@ fn main() -> Result<Dictionary> {
             std::mem::replace::<Option<NvimLanguageFile>>(&mut *nvim_lang_file_gard, None);
 
         return Result::Ok(nvim_lang_file_dest);
+    };
+
+    let nvim_lang_core_docker_setup = nvim_lang_core.clone();
+    let languagetool_docker_setup_fn = move |()| {
+        let tokio_runtime = nvim_lang_core_docker_setup
+            .lang_tool_client
+            .tokio_runtime
+            .as_ref()
+            .unwrap();
+
+        let nvim_lang_core = nvim_lang_core_docker_setup.clone();
+
+        tokio_runtime.spawn_blocking(move || {
+            nvim_lang_core.lang_tool_client.docker_setup();
+            log::logger().flush();
+        });
+
+        return Result::Ok(());
     };
 
     let nvim_lang_core_add_word = nvim_lang_core.clone();
@@ -182,6 +201,7 @@ fn main() -> Result<Dictionary> {
 
     let start_processing_fn = Function::from_fn(start_processing_fn);
     let check_process_fn = Function::from_fn(check_process_fn);
+    let languagetool_docker_setup_fn = Function::from_fn(languagetool_docker_setup_fn);
     let add_word_fn = Function::from_fn(add_word_fn);
     let remove_word_fn = Function::from_fn(remove_word_fn);
     let get_words_fn = Function::from_fn(get_words_fn);
@@ -189,6 +209,10 @@ fn main() -> Result<Dictionary> {
     return Ok(Dictionary::from_iter([
         ("start_processing", Object::from(start_processing_fn)),
         ("check_process", Object::from(check_process_fn)),
+        (
+            "languagetool_docker_setup",
+            Object::from(languagetool_docker_setup_fn),
+        ),
         ("add_word", Object::from(add_word_fn)),
         ("remove_word", Object::from(remove_word_fn)),
         ("get_words", Object::from(get_words_fn)),

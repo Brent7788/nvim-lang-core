@@ -1,3 +1,8 @@
+use std::{
+    process::Command,
+    str::{from_utf8, from_utf8_unchecked},
+};
+
 use languagetool_rust::{error::Result, CheckRequest, CheckResponse, ServerClient};
 use log::{error, info, warn};
 use tokio::runtime::Runtime;
@@ -38,7 +43,52 @@ impl LangToolClient {
         };
     }
 
-    pub fn docker_setup(&self) {}
+    pub fn docker_setup(&self) {
+        let tokio_runtime = match &self.tokio_runtime {
+            Some(tokio_runtime) => tokio_runtime,
+            None => return,
+        };
+
+        let client = ServerClient::new("http://localhost", "8010");
+
+        if let Result::Ok(_) = tokio_runtime.block_on(client.ping()) {
+            return;
+        }
+
+        let cargo_languagetool_cli = Command::new("cargo")
+            .args(["install", "languagetool-rust", "--features", "full"])
+            .output();
+
+        match cargo_languagetool_cli {
+            Ok(output) => info!("cargo install languagetoo-rust output: {:#?}", output),
+            Err(e) => {
+                error!(
+                    "Unable to install languagetool-rust cli using cargo. Error: {:#?}",
+                    e
+                );
+                return;
+            }
+        };
+
+        let docker_pull_output = Command::new("ltrs").args(["docker", "pull"]).output();
+
+        match docker_pull_output {
+            Ok(output) => {
+                info!("ltrs docker pull. Output: {:#?}", output);
+            }
+            Err(e) => {
+                error!(
+                    "Unable to docker pull language tool server. Error: {:#?}",
+                    e
+                );
+                return;
+            }
+        };
+
+        docker_language_tool_start();
+
+        // TODO: Set new Servire Client
+    }
 
     pub fn get_lang_tool(&self, text: &str) -> Option<CheckResponse> {
         if text.is_empty() {
@@ -76,18 +126,71 @@ fn get_language_tool_client(tokio_runtime: &Option<Runtime>) -> ServerClient {
         None => return ServerClient::default(),
     };
 
-    return match ServerClient::from_env() {
-        Ok(client) => {
-            if let Result::Err(e) = tokio_runtime.block_on(client.ping()) {
-                warn!("Unable to start Language Tool Client. Pinning Language Tool Server fialed with this error: {:#?}", e);
-                return ServerClient::default();
+    let client = ServerClient::new("http://localhost", "8010");
+
+    if let Result::Err(_) = tokio_runtime.block_on(client.ping()) {
+        docker_language_tool_start();
+    }
+
+    if let Result::Err(e) = tokio_runtime.block_on(client.ping()) {
+        warn!("Unable to start Language Tool Client. Pinning Language Tool Server fialed with this error: {:#?}", e);
+        return ServerClient::default();
+    }
+
+    return client;
+}
+
+fn docker_language_tool_start() {
+    let docker_images_output = Command::new("docker").arg("images").output();
+
+    match docker_images_output {
+        Ok(output) => {
+            if output.stdout.len() == 0 {
+                return;
             }
 
-            client
+            let stdout = &output.stdout[0..output.stdout.len()];
+            let stdout = match from_utf8(stdout) {
+                Ok(stdout) => stdout,
+                Err(e) => {
+                    error!("Utf8 converstion error after running `docker images` command. Error: {:#?}", e);
+                    return;
+                }
+            };
+
+            if !stdout.contains("erikvl87/languagetool") {
+                warn!("Docker image erikvl87/languagetool has not been installed yet!");
+                return;
+            }
+
+            info!("{:#?}", output);
         }
         Err(e) => {
-            warn!("Unable to start Language Tool Client. Enviroment veriable might not be set. Error: {:#?}", e);
-            ServerClient::default()
+            warn!("Unable to run docker images. Error: {:#?}", e);
+            return;
+        }
+    };
+
+    let docker_start_output = Command::new("ltrs").args(["docker", "start"]).output();
+
+    match docker_start_output {
+        Ok(output) => {
+            if output.stdout.len() > 0 {
+                info!(
+                    "Succefulty started language tool server. Output: {:#?}",
+                    output.stdout
+                );
+                return;
+            }
+
+            warn!("Unknown ltrs docker start. Output: {:#?}", output);
+        }
+        Err(e) => {
+            warn!(
+                "Unable to start language tool server using docker. Error: {:#?}",
+                e
+            );
+            return;
         }
     };
 }

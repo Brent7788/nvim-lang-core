@@ -2,7 +2,6 @@
 pub mod code_string_tests {
     use std::env;
 
-    use log::debug;
     use nvim_lang_core::{
         common::{
             logger::Logger,
@@ -39,7 +38,6 @@ pub mod code_string_tests {
 
         let result = core.process_file(file_path, None);
 
-        debug!("{:#?}", result);
         log::logger().flush();
 
         Expected::data_len_to_be(5, &result);
