@@ -1,12 +1,12 @@
 use std::sync::{Arc, Mutex};
 
 use common::logger::Logger;
-use log::{error, info};
+use log::{error, info, warn};
 use nvim_oxi::{Dictionary, Function, Object, Result};
 
 use crate::{
-    nvim_lang::NvimLanguageFile, nvim_lang_core::NvimLangCore,
-    nvim_lang_dictionary::NvimLanguageDictionary,
+    lang_tool_client::LanguageToolClientState, nvim_lang::NvimLanguageFile,
+    nvim_lang_core::NvimLangCore, nvim_lang_dictionary::NvimLanguageDictionary,
 };
 
 pub mod common;
@@ -36,17 +36,10 @@ fn main() -> Result<Dictionary> {
 
         log::logger().flush();
         let nvim_language_dictionary = nvim_language_dictionary_start_processing.clone();
-        // TODO: Need to handle this unwrap
-        let tokio_runtime = nvim_lang_core_start_processing
-            .lang_tool_client
-            .tokio_runtime
-            .as_ref()
-            .unwrap();
-
         let nvim_lang_file = nvim_lang_file.clone();
         let nvim_lang_core = nvim_lang_core_start_processing.clone();
 
-        tokio_runtime.spawn_blocking(move || {
+        nvim_lang_core_start_processing.spawn_blocking(move || {
             let nvim_language_dictionary_guard = match nvim_language_dictionary.lock() {
                 Ok(guard) => Some(guard),
                 Err(e) => {
@@ -87,7 +80,7 @@ fn main() -> Result<Dictionary> {
     let check_process_fn = move |()| {
         log::logger().flush();
 
-        let mut nvim_lang_file_gard = match nvim_lang_file_cp.try_lock() {
+        let mut nvim_lang_file_guard = match nvim_lang_file_cp.try_lock() {
             Ok(l) => l,
             Err(e) => {
                 info!("nvim language file is busy processing {:#?}", e);
@@ -97,23 +90,26 @@ fn main() -> Result<Dictionary> {
         };
 
         let nvim_lang_file_dest =
-            std::mem::replace::<Option<NvimLanguageFile>>(&mut *nvim_lang_file_gard, None);
+            std::mem::replace::<Option<NvimLanguageFile>>(&mut *nvim_lang_file_guard, None);
 
         return Result::Ok(nvim_lang_file_dest);
     };
 
     let nvim_lang_core_docker_setup = nvim_lang_core.clone();
     let languagetool_docker_setup_fn = move |()| {
-        let tokio_runtime = nvim_lang_core_docker_setup
-            .lang_tool_client
-            .tokio_runtime
-            .as_ref()
-            .unwrap();
-
         let nvim_lang_core = nvim_lang_core_docker_setup.clone();
 
-        tokio_runtime.spawn_blocking(move || {
-            nvim_lang_core.lang_tool_client.docker_setup();
+        nvim_lang_core_docker_setup.spawn_blocking(move || {
+            match nvim_lang_core.get_language_tool_client() {
+                LanguageToolClientState::MainGuard(mut languagetool_client) => {
+                    languagetool_client.docker_setup()
+                }
+                LanguageToolClientState::Default(mut languagetool_client) => {
+                    languagetool_client.docker_setup();
+                    warn!("Using default LanguageTool client!");
+                }
+            };
+
             log::logger().flush();
         });
 
@@ -125,13 +121,8 @@ fn main() -> Result<Dictionary> {
 
     let add_word_fn = move |word: String| {
         let nvim_lang_dictionary = nvim_language_dictionary_add_word.clone();
-        let tokio_runtime = nvim_lang_core_add_word
-            .lang_tool_client
-            .tokio_runtime
-            .as_ref()
-            .unwrap();
 
-        tokio_runtime.spawn_blocking(move || {
+        nvim_lang_core_add_word.spawn_blocking(move || {
             let mut nvim_language_dictionary_gard = match nvim_lang_dictionary.lock() {
                 Ok(gard) => gard,
                 Err(e) => {
@@ -154,13 +145,8 @@ fn main() -> Result<Dictionary> {
 
     let remove_word_fn = move |word: String| {
         let nvim_lang_dictionary = nvim_language_dictionary_remove_word.clone();
-        let tokio_runtime = nvim_lang_core_remove_word
-            .lang_tool_client
-            .tokio_runtime
-            .as_ref()
-            .unwrap();
 
-        tokio_runtime.spawn_blocking(move || {
+        nvim_lang_core_remove_word.spawn_blocking(move || {
             let mut nvim_language_dictionary_gard = match nvim_lang_dictionary.lock() {
                 Ok(gard) => gard,
                 Err(e) => {

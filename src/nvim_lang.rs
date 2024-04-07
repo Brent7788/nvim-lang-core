@@ -1,7 +1,7 @@
 use std::sync::MutexGuard;
 
 use languagetool_rust::check::{Category, Match};
-use log::{debug, warn};
+use log::warn;
 use nvim_oxi::{
     conversion::{FromObject, ToObject},
     lua,

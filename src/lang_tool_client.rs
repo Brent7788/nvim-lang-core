@@ -1,11 +1,14 @@
-use std::{
-    process::Command,
-    str::{from_utf8, from_utf8_unchecked},
-};
+use std::{process::Command, str::from_utf8, sync::MutexGuard};
 
 use languagetool_rust::{error::Result, CheckRequest, CheckResponse, ServerClient};
 use log::{error, info, warn};
 use tokio::runtime::Runtime;
+
+#[derive(Debug)]
+pub enum LanguageToolClientState<'a> {
+    MainGuard(MutexGuard<'a, LangToolClient>),
+    Default(LangToolClient),
+}
 
 #[derive(Debug)]
 pub struct LangToolClient {
@@ -43,7 +46,7 @@ impl LangToolClient {
         };
     }
 
-    pub fn docker_setup(&self) {
+    pub fn docker_setup(&mut self) {
         let tokio_runtime = match &self.tokio_runtime {
             Some(tokio_runtime) => tokio_runtime,
             None => return,
@@ -52,6 +55,11 @@ impl LangToolClient {
         let client = ServerClient::new("http://localhost", "8010");
 
         if let Result::Ok(_) = tokio_runtime.block_on(client.ping()) {
+            info!("Custom LanguageTool server already setup.");
+            return;
+        }
+
+        if languagetool_docker_image_exit() {
             return;
         }
 
@@ -63,7 +71,7 @@ impl LangToolClient {
             Ok(output) => info!("cargo install languagetoo-rust output: {:#?}", output),
             Err(e) => {
                 error!(
-                    "Unable to install languagetool-rust cli using cargo. Error: {:#?}",
+                    "Unable to install languagetool-rust CLI using cargo. Error: {:#?}",
                     e
                 );
                 return;
@@ -77,17 +85,25 @@ impl LangToolClient {
                 info!("ltrs docker pull. Output: {:#?}", output);
             }
             Err(e) => {
-                error!(
-                    "Unable to docker pull language tool server. Error: {:#?}",
-                    e
-                );
+                error!("Unable to docker pull LanguageTool server. Error: {:#?}", e);
                 return;
             }
         };
 
         docker_language_tool_start();
 
-        // TODO: Set new Servire Client
+        let client = ServerClient::new("http://localhost", "8010");
+
+        match tokio_runtime.block_on(client.ping()) {
+            Ok(_) => {
+                info!("Set local language tool client");
+                self.client = client;
+            }
+            Err(e) => warn!(
+                "Was unable to set local language tool client. Error: {:#?}",
+                e
+            ),
+        };
     }
 
     pub fn get_lang_tool(&self, text: &str) -> Option<CheckResponse> {
@@ -113,7 +129,7 @@ impl LangToolClient {
                 return Some(res);
             }
             Err(e) => {
-                error!("Unable to connect to your Language Tool {:#?}", e);
+                error!("Unable to connect to your LanguageTool {:#?}", e);
                 return None;
             }
         }
@@ -133,7 +149,7 @@ fn get_language_tool_client(tokio_runtime: &Option<Runtime>) -> ServerClient {
     }
 
     if let Result::Err(e) = tokio_runtime.block_on(client.ping()) {
-        warn!("Unable to start Language Tool Client. Pinning Language Tool Server fialed with this error: {:#?}", e);
+        warn!("Unable to start LanguageTool Client. Pinning LanguageTool Server fialed with this error: {:#?}", e);
         return ServerClient::default();
     }
 
@@ -141,35 +157,9 @@ fn get_language_tool_client(tokio_runtime: &Option<Runtime>) -> ServerClient {
 }
 
 fn docker_language_tool_start() {
-    let docker_images_output = Command::new("docker").arg("images").output();
-
-    match docker_images_output {
-        Ok(output) => {
-            if output.stdout.len() == 0 {
-                return;
-            }
-
-            let stdout = &output.stdout[0..output.stdout.len()];
-            let stdout = match from_utf8(stdout) {
-                Ok(stdout) => stdout,
-                Err(e) => {
-                    error!("Utf8 converstion error after running `docker images` command. Error: {:#?}", e);
-                    return;
-                }
-            };
-
-            if !stdout.contains("erikvl87/languagetool") {
-                warn!("Docker image erikvl87/languagetool has not been installed yet!");
-                return;
-            }
-
-            info!("{:#?}", output);
-        }
-        Err(e) => {
-            warn!("Unable to run docker images. Error: {:#?}", e);
-            return;
-        }
-    };
+    if !languagetool_docker_image_exit() {
+        return;
+    }
 
     let docker_start_output = Command::new("ltrs").args(["docker", "start"]).output();
 
@@ -177,7 +167,7 @@ fn docker_language_tool_start() {
         Ok(output) => {
             if output.stdout.len() > 0 {
                 info!(
-                    "Succefulty started language tool server. Output: {:#?}",
+                    "Successfully started docker LanguageTool server. Output: {:#?}",
                     output.stdout
                 );
                 return;
@@ -187,10 +177,49 @@ fn docker_language_tool_start() {
         }
         Err(e) => {
             warn!(
-                "Unable to start language tool server using docker. Error: {:#?}",
+                "Unable to start LanguageTool server using docker. Error: {:#?}",
                 e
             );
             return;
+        }
+    };
+}
+
+fn languagetool_docker_image_exit() -> bool {
+    let docker_images_output = Command::new("docker").arg("images").output();
+
+    match docker_images_output {
+        Ok(output) => {
+            if output.stdout.len() == 0 {
+                return false;
+            }
+
+            let stdout = &output.stdout[0..output.stdout.len()];
+            let stdout = match from_utf8(stdout) {
+                Ok(stdout) => stdout,
+                Err(e) => {
+                    error!(
+                        "Utf8 conversion error after running `docker images` command. Error: {:#?}",
+                        e
+                    );
+                    return false;
+                }
+            };
+
+            if !stdout.contains("erikvl87/languagetool") {
+                warn!("Docker image erikvl87/languagetool has not been installed yet!");
+                return false;
+            }
+
+            info!(
+                "Docker image erikvl87/languagetool has been installed. Output{:#?}",
+                output
+            );
+            return true;
+        }
+        Err(e) => {
+            warn!("Unable to run docker images. Error: {:#?}", e);
+            return false;
         }
     };
 }
