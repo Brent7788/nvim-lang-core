@@ -1,4 +1,4 @@
-use std::{process::Command, str::from_utf8, sync::MutexGuard};
+use std::{process::Command, str::from_utf8, sync::MutexGuard, thread, time::Duration};
 
 use languagetool_rust::{error::Result, CheckRequest, CheckResponse, ServerClient};
 use log::{error, info, warn};
@@ -148,8 +148,20 @@ fn get_language_tool_client(tokio_runtime: &Option<Runtime>) -> ServerClient {
         docker_language_tool_start();
     }
 
+    for _ in 1..10 {
+        info!("Pinning http://localhost:8010 ...");
+        if let Result::Ok(_) = tokio_runtime.block_on(client.ping()) {
+            info!("End of pinning http://localhost:8010");
+            break;
+        }
+        thread::sleep(Duration::from_millis(300));
+    }
+
     if let Result::Err(e) = tokio_runtime.block_on(client.ping()) {
-        warn!("Unable to start LanguageTool Client. Pinning LanguageTool Server fialed with this error: {:#?}", e);
+        warn!(
+            "Unable to start LanguageTool server. Connection error: {:#?}",
+            e
+        );
         return ServerClient::default();
     }
 
