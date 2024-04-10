@@ -1,20 +1,20 @@
-use std::{process::Command, str::from_utf8, sync::MutexGuard, thread, time::Duration};
+use std::{
+    process::Command,
+    str::from_utf8,
+    sync::{Arc, Mutex},
+    thread,
+    time::Duration,
+};
 
 use languagetool_rust::{error::Result, CheckRequest, CheckResponse, ServerClient};
 use log::{error, info, warn};
 use tokio::runtime::Runtime;
 
 #[derive(Debug)]
-pub enum LanguageToolClientState<'a> {
-    MainGuard(MutexGuard<'a, LangToolClient>),
-    Default(LangToolClient),
-}
-
-#[derive(Debug)]
 pub struct LangToolClient {
     pub language: String,
     pub tokio_runtime: Option<Runtime>,
-    client: ServerClient,
+    client: Arc<Mutex<ServerClient>>,
 }
 
 impl LangToolClient {
@@ -41,28 +41,51 @@ impl LangToolClient {
 
         return LangToolClient {
             language,
-            client: get_language_tool_client(&tokio_runtime),
+            client: Arc::new(Mutex::new(get_language_tool_client(&tokio_runtime))),
             tokio_runtime,
         };
     }
 
-    pub fn docker_setup(&mut self) {
+    pub fn get_internal_client_clone(&self) -> Arc<Mutex<ServerClient>> {
+        return self.client.clone();
+    }
+
+    pub fn docker_setup(&self) {
         let tokio_runtime = match &self.tokio_runtime {
             Some(tokio_runtime) => tokio_runtime,
             None => return,
         };
 
+        if !languagetool_docker_image_exit() {
+            self.language_tool_docker_pull();
+        }
+
+        docker_language_tool_start();
+
         let client = ServerClient::new("http://localhost", "8010");
 
         if let Result::Ok(_) = tokio_runtime.block_on(client.ping()) {
-            info!("Custom LanguageTool server already setup.");
+            info!("Custom Language Tool server already setup.");
             return;
         }
 
-        if languagetool_docker_image_exit() {
-            return;
-        }
+        multiple_ping(tokio_runtime, &client);
 
+        match tokio_runtime.block_on(client.ping()) {
+            Ok(_) => {
+                info!("Set local language tool client");
+                let mut current_client = self.client.lock().unwrap();
+
+                *current_client = client
+            }
+            Err(e) => warn!(
+                "Was unable to set local language tool client. Error: {:#?}",
+                e
+            ),
+        };
+    }
+
+    fn language_tool_docker_pull(&self) {
         let cargo_languagetool_cli = Command::new("cargo")
             .args(["install", "languagetool-rust", "--features", "full"])
             .output();
@@ -89,21 +112,6 @@ impl LangToolClient {
                 return;
             }
         };
-
-        docker_language_tool_start();
-
-        let client = ServerClient::new("http://localhost", "8010");
-
-        match tokio_runtime.block_on(client.ping()) {
-            Ok(_) => {
-                info!("Set local language tool client");
-                self.client = client;
-            }
-            Err(e) => warn!(
-                "Was unable to set local language tool client. Error: {:#?}",
-                e
-            ),
-        };
     }
 
     pub fn get_lang_tool(&self, text: &str) -> Option<CheckResponse> {
@@ -119,10 +127,20 @@ impl LangToolClient {
             .as_ref()
             .expect("This should never panic!");
 
+        // WARN: This thread lock will significant to reduce the method speed.
         // TODO: Should use the check_multiple_and_join on the client!
-        let response_task = self.client.check(&request);
+        let response = match self.client.lock() {
+            Ok(client) => tokio_runtime.block_on(client.check(&request)),
+            Err(e) => {
+                error!(
+                    "LanguageTool client was poisoned, reverting to default client. Error: {:#?}",
+                    e
+                );
 
-        let response = tokio_runtime.block_on(response_task);
+                // TODO: Should try to recover out of poison error
+                tokio_runtime.block_on(ServerClient::default().check(&request))
+            }
+        };
 
         match response {
             Ok(res) => {
@@ -145,9 +163,15 @@ fn get_language_tool_client(tokio_runtime: &Option<Runtime>) -> ServerClient {
     let client = ServerClient::new("http://localhost", "8010");
 
     if let Result::Err(_) = tokio_runtime.block_on(client.ping()) {
-        docker_language_tool_start();
+        info!("Using default LanguageTool client");
+        return ServerClient::default();
     }
 
+    return client;
+}
+
+// TODO: Naming
+fn multiple_ping(tokio_runtime: &Runtime, client: &ServerClient) {
     for _ in 1..10 {
         info!("Pinning http://localhost:8010 ...");
         if let Result::Ok(_) = tokio_runtime.block_on(client.ping()) {
@@ -156,23 +180,9 @@ fn get_language_tool_client(tokio_runtime: &Option<Runtime>) -> ServerClient {
         }
         thread::sleep(Duration::from_millis(300));
     }
-
-    if let Result::Err(e) = tokio_runtime.block_on(client.ping()) {
-        warn!(
-            "Unable to start LanguageTool server. Connection error: {:#?}",
-            e
-        );
-        return ServerClient::default();
-    }
-
-    return client;
 }
 
 fn docker_language_tool_start() {
-    if !languagetool_docker_image_exit() {
-        return;
-    }
-
     let docker_start_output = Command::new("ltrs").args(["docker", "start"]).output();
 
     match docker_start_output {
@@ -235,98 +245,3 @@ fn languagetool_docker_image_exit() -> bool {
         }
     };
 }
-
-// TODO: Might need this in the feature. If not remove.
-//
-// #[derive(Debug)]
-// pub struct LangToolClient {
-//     pub languagetool_url: String,
-//     pub language: String,
-//     pub tokio_runtime: Option<Runtime>,
-//     client: Client,
-// }
-//
-// impl LangToolClient {
-//     pub fn new(lang_tool_url: Option<String>, lang: Option<String>) -> Self {
-//         let mut languagetool_url: String = "http://localhost:8081".to_owned();
-//         let mut language: String = "en-US".to_owned();
-//         let client = Client::new();
-//
-//         if let Some(url) = lang_tool_url {
-//             languagetool_url = url;
-//         }
-//
-//         if let Some(lang) = lang {
-//             language = lang;
-//         }
-//
-//         info!("Starting Up Tokio Runtime...");
-//
-//         let tokio_runtime = Runtime::new();
-//
-//         let tokio_runtime = match tokio_runtime {
-//             Ok(tokio_runtime) => Some(tokio_runtime),
-//             Err(e) => {
-//                 error!("Unable to start up Tokio Runtime {:#?}", e);
-//                 None
-//             }
-//         };
-//
-//         info!("Tokio Runtime has Started");
-//
-//         return LangToolClient {
-//             languagetool_url,
-//             language,
-//             client,
-//             tokio_runtime,
-//         };
-//     }
-//
-//     pub fn get_lang_tool(&self, text: &str) -> Option<LangTool> {
-//         if text.is_empty() {
-//             return None;
-//         }
-//
-//         let url = self.languagetool_url.clone() + "/v2/check";
-//
-//         let tokio_runtime = self
-//             .tokio_runtime
-//             .as_ref()
-//             .expect("This should never panic!");
-//
-//         let response_task = self
-//             .client
-//             .post(url)
-//             .form(&[("text", text), ("language", self.language.as_str())])
-//             .send();
-//
-//         let response = tokio_runtime.block_on(response_task);
-//
-//         match response {
-//             Ok(res) => {
-//                 let status = res.status();
-//
-//                 //TODO: Need to handler error
-//                 let text = tokio_runtime
-//                     .block_on(res.text())
-//                     .expect("Request error, Unable to get text");
-//
-//                 if !matches!(status, StatusCode::OK) {
-//                     warn!("Something wrong in this text: {}", text);
-//                     warn!("Language Tool response: {}", text);
-//                     return None;
-//                 }
-//
-//                 // debug!("TEXT: {}", text);
-//
-//                 //TODO: Need to handler deserializing error
-//                 let lang_tool: LangTool = serde_json::from_str(&text).unwrap();
-//                 return Some(lang_tool);
-//             }
-//             Err(e) => {
-//                 error!("Unable to connect to your Language Tool {:#?}", e);
-//                 return None;
-//             }
-//         }
-//     }
-// }

@@ -1,12 +1,12 @@
 use std::sync::{Arc, Mutex};
 
 use common::logger::Logger;
-use log::{error, info, warn};
+use log::{error, info};
 use nvim_oxi::{Dictionary, Function, Object, Result};
 
 use crate::{
-    lang_tool_client::LanguageToolClientState, nvim_lang::NvimLanguageFile,
-    nvim_lang_core::NvimLangCore, nvim_lang_dictionary::NvimLanguageDictionary,
+    nvim_lang::NvimLanguageFile, nvim_lang_core::NvimLangCore,
+    nvim_lang_dictionary::NvimLanguageDictionary,
 };
 
 pub mod common;
@@ -100,15 +100,7 @@ fn main() -> Result<Dictionary> {
         let nvim_lang_core = nvim_lang_core_docker_setup.clone();
 
         nvim_lang_core_docker_setup.spawn_blocking(move || {
-            match nvim_lang_core.get_language_tool_client() {
-                LanguageToolClientState::MainGuard(mut languagetool_client) => {
-                    languagetool_client.docker_setup()
-                }
-                LanguageToolClientState::Default(mut languagetool_client) => {
-                    languagetool_client.docker_setup();
-                    warn!("Using default LanguageTool client!");
-                }
-            };
+            nvim_lang_core.get_language_tool_client().docker_setup();
 
             log::logger().flush();
         });
