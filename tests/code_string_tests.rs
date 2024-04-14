@@ -34,14 +34,12 @@ fn simple_string_should_be(#[case] path: &str) {
 #[case("/lua/strings/multiple_strings.lua")]
 fn multiple_strings_should_be(#[case] path: &str) {
     env::set_var("RUST_BACKTRACE", "1");
-    // Logger::console_init();
 
     let file_path = get_project_path(path);
 
     let core = NvimLangCore::new(None, None);
 
     let result = core.process_file(file_path, None);
-    // info!("{} ==== {:#?}", path, result);
 
     log::logger().flush();
     Expected::data_len_to_be(5, &result);

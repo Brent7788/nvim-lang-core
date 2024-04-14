@@ -8,7 +8,7 @@ use std::{
     usize,
 };
 
-use log::{error, warn};
+use log::{debug, error, info, warn};
 
 use crate::common::string::{DelimiterType, StringDelimiterSlice};
 
@@ -410,25 +410,8 @@ impl ProgrammingLine {
             _ => return,
         }
 
-        // TODO: Need to determinant what string delimiter to use
-        let string_syntax = &lang.string_syntax[0];
-
-        let string_line_slices: [Option<&str>; 4] = self.original_line.slices_by(
-            &string_syntax.string_delimiter,
-            &string_syntax.string_ignore_delimiter,
-        );
-
-        let mut index = 0;
-
-        while index < self.string_line.len() {
-            if matches!(string_line_slices[index], None) {
-                break;
-            }
-
-            // TODO:: Should handle this unwrap
-            self.string_line[index] = Some(string_line_slices[index].unwrap().into());
-
-            index += 1;
+        for string_syntax in &lang.string_syntax {
+            self.set_string(string_syntax);
         }
 
         if !matches!(self.string_line[0], None) {
@@ -439,6 +422,27 @@ impl ProgrammingLine {
                 }
                 _ => (),
             }
+        }
+    }
+
+    fn set_string(&mut self, string_syntax: &ProgrammingStringSyntax) {
+        let string_line_slices: [Option<&str>; 4] = self.original_line.slices_by(
+            &string_syntax.string_delimiter,
+            &string_syntax.string_ignore_delimiter,
+        );
+
+        let mut index = 0;
+
+        // WARN: It is possible that there will be more than 4 string line!
+        while index < self.string_line.len() {
+            if matches!(string_line_slices[index], None) {
+                break;
+            }
+
+            // TODO:: Should handle this unwrap
+            self.string_line[index] = Some(string_line_slices[index].unwrap().into());
+
+            index += 1;
         }
     }
 
