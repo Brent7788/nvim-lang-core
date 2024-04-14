@@ -48,8 +48,8 @@ pub struct ProgrammingLanguage<'lang> {
     block_comment_delimiter_end: &'lang str,
     operators_and_syntax: Vec<&'lang str>,
     reserved_keywords: Vec<&'lang str>,
-    string_syntax: [ProgrammingStringSyntax; 1],
-    naming_convetions: [NamingConvetionType; 2],
+    string_syntax: [ProgrammingStringSyntax; 2],
+    naming_conventions: [NamingConvetionType; 2],
     lang_type: ProgrammingLanguageType,
 }
 
@@ -59,12 +59,34 @@ impl<'lang> ProgrammingLanguage<'lang> {
             ProgrammingLanguage {
                 extension: ".lua",
                 comment_delimiter: "--",
-                block_comment_delimiter_start: "",
-                block_comment_delimiter_end: "",
-                string_syntax: [ProgrammingStringSyntax::default()],
-                reserved_keywords: vec![],
-                operators_and_syntax: vec![],
-                naming_convetions: [NamingConvetionType::None, NamingConvetionType::None],
+                block_comment_delimiter_start: "--[[",
+                block_comment_delimiter_end: "--]]",
+                string_syntax: [
+                    ProgrammingStringSyntax {
+                        string_delimiter: DelimiterType::DelimiterChar('"'),
+                        string_ignore_delimiter: [
+                            DelimiterType::DelimiterStr("\\\""),
+                            DelimiterType::None,
+                        ],
+                    },
+                    ProgrammingStringSyntax {
+                        string_delimiter: DelimiterType::DelimiterChar('\''),
+                        string_ignore_delimiter: [
+                            DelimiterType::DelimiterStr("\\\'"),
+                            DelimiterType::None,
+                        ],
+                    },
+                ],
+                reserved_keywords: vec![
+                    "and", "break", "do", "else", "elseif", "end", "false", "for", "function",
+                    "if", "in", "local", "nil", "not", "or", "repeat", "return", "then", "true",
+                    "until", "while",
+                ],
+                operators_and_syntax: vec![
+                    "_", "+", "-", "*", "/", "%", "=", "~", ">", "<", "^", "/=", "%=", "(", ")",
+                    "[", "]", "{", "}", ";", ":", ",", "..", ".", "#",
+                ],
+                naming_conventions: [NamingConvetionType::None, NamingConvetionType::None],
                 lang_type: ProgrammingLanguageType::Lua,
             },
             ProgrammingLanguage {
@@ -72,13 +94,16 @@ impl<'lang> ProgrammingLanguage<'lang> {
                 comment_delimiter: "//",
                 block_comment_delimiter_start: "/*",
                 block_comment_delimiter_end: "*/",
-                string_syntax: [ProgrammingStringSyntax {
-                    string_delimiter: DelimiterType::DelimiterChar('"'),
-                    string_ignore_delimiter: [
-                        DelimiterType::DelimiterStr("\\\""),
-                        DelimiterType::None,
-                    ],
-                }],
+                string_syntax: [
+                    ProgrammingStringSyntax {
+                        string_delimiter: DelimiterType::DelimiterChar('"'),
+                        string_ignore_delimiter: [
+                            DelimiterType::DelimiterStr("\\\""),
+                            DelimiterType::None,
+                        ],
+                    },
+                    ProgrammingStringSyntax::default(),
+                ],
                 reserved_keywords: vec![
                     "as", "async", "await", "break", "const", "continue", "crate", "dyn", "else",
                     "enum", "extern", "false", "fn", "for", "if", "impl", "in", "let", "loop",
@@ -90,7 +115,7 @@ impl<'lang> ProgrammingLanguage<'lang> {
                     "_", "+", "-", "*", "/", "%", "=", "!", ">", "<", "&", "|", "'", "^", "/=",
                     "%=", "(", ")", "{", "}", "[", "]", ";", ":", ",", "..", ".", "#",
                 ],
-                naming_convetions: [NamingConvetionType::PascalCase, NamingConvetionType::None],
+                naming_conventions: [NamingConvetionType::PascalCase, NamingConvetionType::None],
                 lang_type: ProgrammingLanguageType::Rust,
             },
         ];

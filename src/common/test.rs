@@ -57,6 +57,10 @@ impl<'r> Expected<'r> {
     }
 }
 
+pub fn get_project_path(path: &str) -> String {
+    return String::new() + PROJECT_PATH + TEST_FILE_PATH + path;
+}
+
 pub fn get_test_comment_path(test_file: &str) -> String {
     return String::new() + PROJECT_PATH + TEST_FILE_PATH + TEST_COMMENT_PATH + test_file;
 }

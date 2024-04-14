@@ -346,14 +346,14 @@ fn is_first_char_part_of_alpb(sen: &str) -> bool {
     return false;
 }
 
-fn is_not_valid_offset(input_indext: usize, input: &Vec<&str>) -> bool {
+fn is_not_valid_offset(input_index: usize, input: &Vec<&str>) -> bool {
     //INFO: The last input offset is always invalid
-    if input_indext == input.len() - 1 {
+    if input_index == input.len() - 1 {
         return true;
     }
 
-    let before_index = input_indext as isize - 1;
-    let after_index = input_indext + 1;
+    let before_index = input_index as isize - 1;
+    let after_index = input_index + 1;
 
     if before_index == -1 {
         return is_first_char_part_of_alpb(input[after_index]);
@@ -367,6 +367,9 @@ fn is_not_valid_offset(input_indext: usize, input: &Vec<&str>) -> bool {
         || is_first_char_part_of_alpb(input[after_index]);
 }
 
+// BUG: Does not work on this:
+//      `local TEXT = "a shop with brances in many places, especialy one selling a specific type of prduct.";`
+//      The `a` in local is detected and not in the string.
 fn get_target_offsets(input_string: &str, target: &str) -> Vec<usize> {
     let input_collection: Vec<&str> = input_string.split(target).collect();
     let mut offsets: Vec<usize> = Vec::new();

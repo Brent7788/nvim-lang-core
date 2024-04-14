@@ -17,13 +17,14 @@ log = "0.4"
 fast_log = "1"
 serde = "1"
 serde_json = "1"
-reqwest = { version = "0.11", features = ["json"] }
+# reqwest = { version = "0.11", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
-stopwatch = "0.0.7"
+# stopwatch = "0.0.7"
 home = "0.5.9"
 languagetool-rust = "2.1.4"
 
-# [dev-dependencies]
+[dev-dependencies]
+rstest = "*"
 # criterion = "0.3"
 #
 # [[bench]]

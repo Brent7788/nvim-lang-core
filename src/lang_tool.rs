@@ -8,7 +8,6 @@ use log::{debug, info};
 
 use crate::{
     lang_tool_client::LangToolClient,
-    modules::{LangTool, Matche},
     nvim_lang_dictionary::NvimLanguageDictionary,
     programming_lang::{ProgrammingFile, ProgrammingLine},
 };
@@ -193,7 +192,7 @@ impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
         language_dictionary: &Option<MutexGuard<NvimLanguageDictionary>>,
         client: &LangToolClient,
     ) {
-        // TODO: Should limit processed char count to 5000, if 5000 create new Code.
+        // TODO:Should limit processed char count to 5000, if 5000 create new Code.
         // TODO: Need to find a way to use Vec::with_capacity.
         //       Maybe on the Programming File predetermine/count comment, code and string line
         let mut code: LanguageToolLines = LanguageToolLines {
