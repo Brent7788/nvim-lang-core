@@ -399,7 +399,7 @@ impl ProgrammingLine {
             return;
         }
 
-        // TODO: The code line need to be transformed
+        // TODO: The code line needs to be transformed
         self.code_line = Some(self.original_line.as_str().into());
     }
 

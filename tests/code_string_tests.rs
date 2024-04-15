@@ -1,11 +1,7 @@
 use std::env;
 
-use log::info;
 use nvim_lang_core::{
-    common::{
-        logger::Logger,
-        test::{get_project_path, Expected},
-    },
+    common::test::{get_project_path, Expected},
     nvim_lang_core::NvimLangCore,
 };
 use rstest::rstest;
@@ -41,7 +37,6 @@ fn multiple_strings_should_be(#[case] path: &str) {
 
     let result = core.process_file(file_path, None);
 
-    log::logger().flush();
     Expected::data_len_to_be(5, &result);
     Expected::new(2, 8, 14, 2, "prduct", vec!["product", "pr duct"]).assert(0, &result);
     Expected::new(2, 20, 29, 1, "oparation", vec!["operation"]).assert(1, &result);
