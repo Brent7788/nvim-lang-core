@@ -19,10 +19,10 @@ fn simple_string_should_be(#[case] path: &str) {
     let result = core.process_file(file_path, None);
 
     Expected::data_len_to_be(4, &result);
-    Expected::new(2, 5, 6, 1, "a", vec!["A"]).assert(0, &result);
-    Expected::new(2, 17, 24, 5, "brances", vec!["branches"]).assert(1, &result);
-    Expected::new(2, 41, 50, 2, "especialy", vec!["especially"]).assert(2, &result);
-    Expected::new(2, 82, 88, 2, "prduct", vec!["product"]).assert(3, &result);
+    Expected::new(2, 17, 24, 5, "brances", vec!["branches"]).assert(0, &result);
+    Expected::new(2, 41, 50, 2, "especialy", vec!["especially"]).assert(1, &result);
+    Expected::new(2, 82, 88, 2, "prduct", vec!["product"]).assert(2, &result);
+    Expected::new(2, 5, 6, 1, "a", vec!["A"]).assert(3, &result);
 }
 
 #[rstest]

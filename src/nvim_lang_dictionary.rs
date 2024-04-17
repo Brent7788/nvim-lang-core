@@ -125,7 +125,7 @@ impl NvimLanguageDictionary {
         return false;
     }
 
-    pub fn replase_with_dictionary_values(&self, value: String) -> String {
+    pub fn replace_with_dictionary_values(&self, value: String) -> String {
         let values = value.split_whitespace();
         let mut new_value = String::with_capacity(value.len());
 

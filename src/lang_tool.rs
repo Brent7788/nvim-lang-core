@@ -228,6 +228,11 @@ impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
 
                 let code_chunk = prog_file.lang.split_by_naming_conventions(code_chunk);
 
+                //INFO: This will make sure that LanguageTool does not detect repetitive words.
+                if processed_code.ends_with(&code_chunk) {
+                    processed_code.push_str(" _")
+                }
+
                 processed_code.push_str(" ");
                 processed_code.push_str(code_chunk.trim());
             }
@@ -242,7 +247,7 @@ impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
         }
 
         if let Some(language_dictionary) = language_dictionary {
-            processed_code = language_dictionary.replase_with_dictionary_values(processed_code)
+            processed_code = language_dictionary.replace_with_dictionary_values(processed_code)
         }
 
         // debug!("CODE: {:#?}", processed_code);

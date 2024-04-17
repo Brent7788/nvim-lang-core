@@ -489,6 +489,8 @@ impl ProgrammingLine {
         return match self.prog_type {
             crate::programming_lang::ProgrammingLineType::Code => true,
             crate::programming_lang::ProgrammingLineType::CodeWithComment => true,
+            crate::programming_lang::ProgrammingLineType::CodeWithString => true,
+            crate::programming_lang::ProgrammingLineType::CodeWithStringWithComment => true,
             _ => false,
         };
     }
