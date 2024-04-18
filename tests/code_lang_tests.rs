@@ -60,7 +60,7 @@ fn simple_code_should_be(#[case] path: &str, #[case] expected: Vec<Expected>) {
         vec!["process", "produces", "prices"],
     )
 ])]
-#[case("/lua/codes/multiple_code.lua", 11, 
+#[case("/lua/codes/multiple_code.lua", 12, 
     vec![
     Expected::new(1, 10, 15, 3, "Foldr", vec!["Fold", "Folder", "Folds"]),
     Expected::new(5, 13, 18, 3, "Foldr", vec!["Fold", "Folder", "Folds"]),

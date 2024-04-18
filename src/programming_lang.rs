@@ -83,8 +83,8 @@ impl<'lang> ProgrammingLanguage<'lang> {
                     "until", "while",
                 ],
                 operators_and_syntax: vec![
-                    "_", "+", "-", "*", "/", "%", "=", "~", ">", "<", "^", "/=", "%=", "(", ")",
-                    "[", "]", "{", "}", ";", ":", ",", "..", ".", "#",
+                    "_", "+", "-", "*", "/", "%", "=", "'", "\"", "~", ">", "<", "^", "/=", "%=",
+                    "(", ")", "[", "]", "{", "}", ";", ":", ",", "..", ".", "#",
                 ],
                 naming_conventions: [NamingConvetionType::None, NamingConvetionType::None],
                 lang_type: ProgrammingLanguageType::Lua,
@@ -109,11 +109,12 @@ impl<'lang> ProgrammingLanguage<'lang> {
                     "enum", "extern", "false", "fn", "for", "if", "impl", "in", "let", "loop",
                     "match", "mod", "move", "mut", "pub", "ref", "return", "Self", "self",
                     "static", "struct", "super", "trait", "true", "type", "unsafe", "use", "where",
-                    "while", "str",
+                    "while", "str", "usize", "isize", "bool", "i8", "i16", "i32", "i64", "u8",
+                    "u16", "u32", "u64",
                 ],
                 operators_and_syntax: vec![
-                    "_", "+", "-", "*", "/", "%", "=", "!", ">", "<", "&", "|", "'", "^", "/=",
-                    "%=", "(", ")", "{", "}", "[", "]", ";", ":", ",", "..", ".", "#",
+                    "_", "+", "-", "*", "/", "%", "=", "\"", "!", ">", "<", "&", "|", "'", "^",
+                    "/=", "%=", "(", ")", "{", "}", "[", "]", ";", ":", ",", "..", ".", "#",
                 ],
                 naming_conventions: [NamingConvetionType::PascalCase, NamingConvetionType::None],
                 lang_type: ProgrammingLanguageType::Rust,
@@ -358,6 +359,18 @@ impl ProgrammingLine {
 
         //TODO: Need to use the lang to check if this is really code.
         self.prog_type = ProgrammingLineType::Code;
+    }
+
+    pub fn replace_code_string_with_empty_string(&self, mut code_line: String) -> String {
+        for str_ln_chunk in &self.string_line {
+            let str_ln_chunk = match str_ln_chunk {
+                Some(str_ln_chunk) => str_ln_chunk,
+                None => break,
+            };
+            code_line = code_line.replace(str_ln_chunk.as_ref(), "");
+        }
+
+        return code_line;
     }
 
     fn set_if_comment(&mut self, lang: &ProgrammingLanguage) {

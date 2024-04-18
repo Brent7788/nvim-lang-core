@@ -213,6 +213,8 @@ impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
                 .lang
                 .replase_all_operators_and_syntax_with_whitespace(prog_line.get_code());
 
+            let code_line = prog_line.replace_code_string_with_empty_string(code_line);
+
             let code_line_split = code_line.split_whitespace();
             let processed_code_len = processed_code.len();
 

@@ -1,5 +1,5 @@
 local MainFoldr = {
-    foldr_path = ''
+    foldr_path = 'defaullt'
 }
 
 function MainFoldr.generte_foldr(systim, procces)
