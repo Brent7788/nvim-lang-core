@@ -222,6 +222,48 @@ impl<const S: usize, const D: usize> StringDelimiterSlice<S, D> for String {
     }
 }
 
+pub trait StringSlice {
+    fn slice_between<'s>(&'s self, start: &str, end: &str) -> &'s str;
+}
+
+impl StringSlice for String {
+    fn slice_between<'s>(&'s self, start: &str, end: &str) -> &'s str {
+        let original_len = self.len();
+        let start_len = start.len();
+        let end_len = end.len();
+
+        let mut start_offset_done = false;
+        let mut start_offset: usize = 0;
+        let mut end_offset: usize = original_len;
+        let mut index: usize = 0;
+        let mut index_start = start_len;
+        let mut index_end = end_len;
+
+        while index < original_len {
+            if !start_offset_done
+                && index_start <= original_len
+                && &self[index..index_start] == start
+            {
+                start_offset = index_start;
+                start_offset_done = true;
+            } else if index_end <= original_len && &self[index..index_end] == end {
+                end_offset = index;
+                break;
+            }
+
+            index += 1;
+            index_start += 1;
+            index_end += 1;
+        }
+
+        if end_offset <= start_offset {
+            return &self[0..original_len];
+        }
+
+        return &self[start_offset..end_offset];
+    }
+}
+
 pub trait StrPointer<'sp> {
     fn as_str(self) -> &'sp str;
 }

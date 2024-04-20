@@ -5,7 +5,7 @@ pub mod common_tests {
     use log::info;
     use nvim_lang_core::common::{
         logger::Logger,
-        string::{DelimiterType, StringDelimiterSlice},
+        string::{DelimiterType, StringDelimiterSlice, StringSlice},
     };
 
     #[test]
@@ -160,5 +160,27 @@ pub mod common_tests {
         if let Some(s) = n_slices[0] {
             assert_eq!("This is --%term command(rm -f -no)-", s);
         }
+    }
+
+    #[test]
+    fn simple_string_slice_between_should_be() {
+        let simple_string = String::from("Hello, */This is a slice in between./*, end");
+        let simple_string = simple_string.slice_between("*/", "/*");
+        assert_eq!("This is a slice in between.", simple_string);
+        let simple_string = String::from("Hello, /This is a slice in between./, end");
+        let simple_string = simple_string.slice_between("/", "/");
+        assert_eq!("This is a slice in between.", simple_string);
+        let simple_string = String::from("Hello, /This is a slice/in between./, end");
+        let simple_string = simple_string.slice_between("/", "/");
+        assert_eq!("This is a slice", simple_string);
+        let simple_string = String::from("Hello, --[[This is a slice in between. end");
+        let simple_string = simple_string.slice_between("--[[", "--]]");
+        assert_eq!("This is a slice in between. end", simple_string);
+        let simple_string = String::from("Hello, This is a slice in between.--]] end");
+        let simple_string = simple_string.slice_between("--[[", "--]]");
+        assert_eq!("Hello, This is a slice in between.", simple_string);
+        let simple_string = String::from("Hello, This is a slice in between. end");
+        let simple_string = simple_string.slice_between("*/", "/*");
+        assert_eq!("Hello, This is a slice in between. end", simple_string);
     }
 }
