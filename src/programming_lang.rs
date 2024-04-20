@@ -10,7 +10,7 @@ use std::{
 
 use log::{debug, error, info, warn};
 
-use crate::common::string::{DelimiterType, StringDelimiterSlice};
+use crate::common::string::{DelimiterType, StringDelimiterSlice, StringSlice};
 
 #[derive(Debug)]
 pub enum ProgrammingLanguageType {
@@ -253,7 +253,7 @@ impl<'pf> ProgrammingFile<'pf> {
 
             programming_line.set_type(self.lang, last_prog_line);
             programming_line.set_if_comment(self.lang);
-            programming_line.set_if_block_comment();
+            programming_line.set_if_block_comment(self.lang);
             programming_line.set_if_code();
             programming_line.set_if_contain_strings(self.lang);
             programming_line.set_hash(&mut hasher);
@@ -324,13 +324,17 @@ impl ProgrammingLine {
             return;
         }
 
-        if line.contains(lang.comment_delimiter) {
+        let is_block_cmt_start = line.contains(lang.block_comment_delimiter_start);
+        let is_block_cmt_end = line.contains(lang.block_comment_delimiter_end);
+
+        if line.contains(lang.comment_delimiter) && !is_block_cmt_start && !is_block_cmt_end {
+            // if line.contains(lang.comment_delimiter) {
             self.prog_type = ProgrammingLineType::Comment;
             return;
         }
 
-        let is_block_cmt_start = line.contains(lang.block_comment_delimiter_start);
-        let is_block_cmt_end = line.contains(lang.block_comment_delimiter_end);
+        // let is_block_cmt_start = line.contains(lang.block_comment_delimiter_start);
+        // let is_block_cmt_end = line.contains(lang.block_comment_delimiter_end);
 
         if is_block_cmt_start && is_block_cmt_end {
             self.prog_type = ProgrammingLineType::BlockCommentStartAndEnd;
@@ -395,7 +399,8 @@ impl ProgrammingLine {
 
     // TODO: What if there is code on the same line.
     //       What if there is two or more block comments on the same line.
-    fn set_if_block_comment(&mut self) {
+    fn set_if_block_comment(&mut self, programming_language: &ProgrammingLanguage) {
+        debug!("HELLOOOO {:#?}", self.prog_type);
         match self.prog_type {
             ProgrammingLineType::BlockCommentStart => (),
             ProgrammingLineType::BlockComment => (),
@@ -404,7 +409,15 @@ impl ProgrammingLine {
             _ => return,
         }
 
-        self.commented_line = Some(self.original_line.trim().into());
+        let commented_line = self.original_line.slice_between(
+            programming_language.block_comment_delimiter_start,
+            programming_language.block_comment_delimiter_end,
+        );
+
+        debug!("_________{}", commented_line);
+
+        // self.commented_line = Some(self.original_line.trim().into());
+        self.commented_line = Some(commented_line.trim().into());
     }
 
     fn set_if_code(&mut self) {
