@@ -5,10 +5,11 @@ use std::{
     io::{BufRead, BufReader},
     rc::Rc,
     str::from_utf8_unchecked,
+    sync::Arc,
     usize,
 };
 
-use log::{debug, error, info, warn};
+use log::{error, warn};
 
 use crate::common::string::{DelimiterType, StringDelimiterSlice, StringSlice};
 
@@ -328,13 +329,9 @@ impl ProgrammingLine {
         let is_block_cmt_end = line.contains(lang.block_comment_delimiter_end);
 
         if line.contains(lang.comment_delimiter) && !is_block_cmt_start && !is_block_cmt_end {
-            // if line.contains(lang.comment_delimiter) {
             self.prog_type = ProgrammingLineType::Comment;
             return;
         }
-
-        // let is_block_cmt_start = line.contains(lang.block_comment_delimiter_start);
-        // let is_block_cmt_end = line.contains(lang.block_comment_delimiter_end);
 
         if is_block_cmt_start && is_block_cmt_end {
             self.prog_type = ProgrammingLineType::BlockCommentStartAndEnd;
@@ -400,7 +397,6 @@ impl ProgrammingLine {
     // TODO: What if there is code on the same line.
     //       What if there is two or more block comments on the same line.
     fn set_if_block_comment(&mut self, programming_language: &ProgrammingLanguage) {
-        debug!("HELLOOOO {:#?}", self.prog_type);
         match self.prog_type {
             ProgrammingLineType::BlockCommentStart => (),
             ProgrammingLineType::BlockComment => (),
@@ -414,9 +410,6 @@ impl ProgrammingLine {
             programming_language.block_comment_delimiter_end,
         );
 
-        debug!("_________{}", commented_line);
-
-        // self.commented_line = Some(self.original_line.trim().into());
         self.commented_line = Some(commented_line.trim().into());
     }
 

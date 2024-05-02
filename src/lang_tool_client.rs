@@ -6,6 +6,7 @@ use std::{
     time::Duration,
 };
 
+use arc_swap::{ArcSwap, ArcSwapAny};
 use languagetool_rust::{error::Result, CheckRequest, CheckResponse, ServerClient};
 use log::{error, info, warn};
 use tokio::runtime::Runtime;
@@ -14,7 +15,7 @@ use tokio::runtime::Runtime;
 pub struct LangToolClient {
     pub language: String,
     pub tokio_runtime: Option<Runtime>,
-    client: Arc<Mutex<ServerClient>>,
+    client: ArcSwapAny<Arc<ServerClient>>,
 }
 
 impl LangToolClient {
@@ -41,13 +42,13 @@ impl LangToolClient {
 
         return LangToolClient {
             language,
-            client: Arc::new(Mutex::new(get_language_tool_client(&tokio_runtime))),
+            client: ArcSwap::from(Arc::new(get_language_tool_client(&tokio_runtime))),
             tokio_runtime,
         };
     }
 
-    pub fn get_internal_client_clone(&self) -> Arc<Mutex<ServerClient>> {
-        return self.client.clone();
+    pub fn get_runtime(&self) -> &Runtime {
+        return self.tokio_runtime.as_ref().expect("Should never panic!");
     }
 
     pub fn docker_setup(&self) {
@@ -74,9 +75,8 @@ impl LangToolClient {
         match tokio_runtime.block_on(client.ping()) {
             Ok(_) => {
                 info!("Set local language tool client");
-                let mut current_client = self.client.lock().unwrap();
 
-                *current_client = client
+                self.client.store(client.into());
             }
             Err(e) => warn!(
                 "Was unable to set local language tool client. Error: {:#?}",
@@ -122,25 +122,44 @@ impl LangToolClient {
         let mut request = CheckRequest::default().with_text(text.to_owned());
         request = request.with_language(self.language.to_string());
 
+        let tokio_runtime = self.get_runtime();
+
+        let client = self.client.load();
+        let response = tokio_runtime.block_on(client.check(&request));
+
+        match response {
+            Ok(res) => {
+                return Some(res);
+            }
+            Err(e) => {
+                error!("Unable to connect to your LanguageTool {:#?}", e);
+                return None;
+            }
+        }
+    }
+
+    pub fn get_multi_lang_tool(&self, texts: Vec<&str>) -> Option<CheckResponse> {
+        if texts.is_empty() {
+            return None;
+        }
+
+        let mut requests: Vec<CheckRequest> = Vec::with_capacity(texts.len());
+
+        for text in texts {
+            let mut request = CheckRequest::default().with_text(text.to_owned());
+            request = request.with_language(self.language.to_string());
+
+            requests.push(request);
+        }
+
         let tokio_runtime = self
             .tokio_runtime
             .as_ref()
             .expect("This should never panic!");
 
-        // WARN: This thread lock will significant to reduce the method speed.
-        // TODO: Should use the check_multiple_and_join on the client!
-        let response = match self.client.lock() {
-            Ok(client) => tokio_runtime.block_on(client.check(&request)),
-            Err(e) => {
-                error!(
-                    "LanguageTool client was poisoned, reverting to default client. Error: {:#?}",
-                    e
-                );
+        let client = self.client.load();
 
-                // TODO: Should try to recover out of poison error
-                tokio_runtime.block_on(ServerClient::default().check(&request))
-            }
-        };
+        let response = tokio_runtime.block_on(client.check_multiple_and_join(requests));
 
         match response {
             Ok(res) => {

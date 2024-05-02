@@ -3,10 +3,11 @@ name = "nvim-lang-core"
 version = "0.1.0"
 edition = "2021"
 
-#Note* that 'lib' was added to make tests to work. Remove lib if rust module does not work wiht nvim lua.
+#Note* that 'lib' was added to make tests to work. Remove lib if rust module does not work with nvim lua.
 #https://github.com/rust-lang/cargo/issues/6659 
-[lib]
-crate-type = ["cdylib", "lib"]
+# [lib]
+# crate-type = ["cdylib"]
+# crate-type = ["cdylib", "lib"]
 
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -22,11 +23,12 @@ tokio = { version = "1", features = ["full"] }
 # stopwatch = "0.0.7"
 home = "0.5.9"
 languagetool-rust = "2.1.4"
+arc-swap = "1.7.1"
 
 [dev-dependencies]
 rstest = "*"
-# criterion = "0.3"
+criterion = "0.3"
 #
-# [[bench]]
-# name = "my_benchmark"
-# harness = false
+[[bench]]
+name = "my_benchmark"
+harness = false

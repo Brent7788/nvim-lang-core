@@ -1,4 +1,7 @@
-use std::sync::MutexGuard;
+use std::{
+    rc::Rc,
+    sync::{Arc, MutexGuard},
+};
 
 use languagetool_rust::{
     check::{Context, Match},
@@ -87,8 +90,8 @@ impl<'ltl> LanguageToolLines<'ltl> {
         client: &LangToolClient,
     ) -> Vec<LanguageToolLines<'ltl>> {
         const CODE_COUNT: u64 = 1;
-        let lang_tool_lines_count =
-            (CODE_COUNT + prog_file.commet_count + prog_file.string_count) as usize;
+        const STRING_COUNT: u64 = 1;
+        let lang_tool_lines_count = (CODE_COUNT + STRING_COUNT + prog_file.commet_count) as usize;
 
         let mut lang_tool_lines: Vec<LanguageToolLines> = Vec::with_capacity(lang_tool_lines_count);
 
@@ -138,7 +141,7 @@ impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
         client: &LangToolClient,
     ) {
         // TODO: Need to find a way to use Vec::with_capacity.
-        //       Maybe on the ProgrammingFile predetermine/count comment, code and string line
+        //       Maybe on the Programming File predetermine/count comment, code and string line
         let mut comment: LanguageToolLines = LanguageToolLines {
             prog_lines: Vec::new(),
             line_end_offset: Vec::new(),
@@ -192,7 +195,6 @@ impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
         language_dictionary: &Option<MutexGuard<NvimLanguageDictionary>>,
         client: &LangToolClient,
     ) {
-        // TODO:Should limit processed char count to 5000, if 5000 create new Code.
         // TODO: Need to find a way to use Vec::with_capacity.
         //       Maybe on the Programming File predetermine/count comment, code and string line
         let mut code: LanguageToolLines = LanguageToolLines {
@@ -254,7 +256,35 @@ impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
 
         // debug!("CODE: {:#?}", processed_code);
 
-        code.lang_tool = client.get_lang_tool(&processed_code);
+        const PROCESSED_CODE_LIMIT: usize = 1000;
+        let processed_code_length = processed_code.len();
+        let mut processed_code_limit_count = processed_code_length / PROCESSED_CODE_LIMIT;
+
+        if processed_code_limit_count <= 0 {
+            code.lang_tool = client.get_lang_tool(&processed_code);
+            code.tp = LanguageToolLinesType::Code;
+            self.push(code);
+            return;
+        }
+
+        let mut processed_code_limit_start: usize = 0;
+        let mut processed_code_chunks: Vec<&str> = Vec::with_capacity(processed_code_limit_count);
+
+        while processed_code_limit_count > 0 {
+            let mut processed_code_limit_end = processed_code_limit_start + PROCESSED_CODE_LIMIT;
+
+            if processed_code_limit_end > processed_code_length {
+                processed_code_limit_end = processed_code_length;
+            }
+
+            processed_code_chunks
+                .push(&processed_code[processed_code_limit_start..processed_code_limit_end]);
+
+            processed_code_limit_start += PROCESSED_CODE_LIMIT;
+            processed_code_limit_count -= 1;
+        }
+
+        code.lang_tool = client.get_multi_lang_tool(processed_code_chunks);
 
         // debug!("CODE: {:#?}", code);
 
@@ -263,6 +293,15 @@ impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
     }
 
     fn push_if_strings(&mut self, prog_file: &'ltl ProgrammingFile<'ltl>, client: &LangToolClient) {
+        let mut languagetool_lines = LanguageToolLines {
+            prog_lines: vec![],
+            line_end_offset: Vec::with_capacity(0),
+            lang_tool: None,
+            tp: LanguageToolLinesType::String,
+        };
+
+        let mut processed_strings: Vec<&str> = Vec::with_capacity(prog_file.string_count as usize);
+
         for line in &prog_file.lines {
             if !line.is_code_string_line() {
                 continue;
@@ -278,13 +317,12 @@ impl<'ltl> LanguageToolLinesVecTrait<'ltl> for Vec<LanguageToolLines<'ltl>> {
                     continue;
                 }
 
-                self.push(LanguageToolLines {
-                    prog_lines: vec![line],
-                    line_end_offset: Vec::with_capacity(0),
-                    lang_tool: client.get_lang_tool(str_line),
-                    tp: LanguageToolLinesType::String,
-                });
+                processed_strings.push(str_line);
+                languagetool_lines.prog_lines.push(line);
             }
         }
+
+        languagetool_lines.lang_tool = client.get_multi_lang_tool(processed_strings);
+        self.push(languagetool_lines);
     }
 }

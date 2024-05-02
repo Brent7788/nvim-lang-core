@@ -11,7 +11,7 @@ use crate::programming_lang::{ProgrammingFile, ProgrammingLanguage};
 #[derive(Debug)]
 pub struct NvimLangCore<'lang> {
     lang_tool_client: LangToolClient,
-    programming_languages: [ProgrammingLanguage<'lang>; 2],
+    pub programming_languages: [ProgrammingLanguage<'lang>; 2],
 }
 
 impl<'lang> NvimLangCore<'lang> {

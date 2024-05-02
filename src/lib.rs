@@ -173,6 +173,24 @@ fn main() -> Result<Dictionary> {
         return Result::Ok(nvim_language_dictionary_gard.get_words());
     };
 
+    let nvim_lang_core_does_support_language = nvim_lang_core.clone();
+
+    let does_support_language_fn = move |file_path: String| {
+        if file_path.is_empty() {
+            return Result::Ok(false);
+        }
+
+        let nvim_lang_core = nvim_lang_core_does_support_language.clone();
+
+        for programming_language in &nvim_lang_core.programming_languages {
+            if file_path.ends_with(programming_language.extension) {
+                return Result::Ok(true);
+            }
+        }
+
+        return Result::Ok(false);
+    };
+
     info!("Nvim Language Core has Started");
 
     log::logger().flush();
@@ -183,6 +201,7 @@ fn main() -> Result<Dictionary> {
     let add_word_fn = Function::from_fn(add_word_fn);
     let remove_word_fn = Function::from_fn(remove_word_fn);
     let get_words_fn = Function::from_fn(get_words_fn);
+    let does_support_language_fn = Function::from_fn(does_support_language_fn);
 
     return Ok(Dictionary::from_iter([
         ("start_processing", Object::from(start_processing_fn)),
@@ -194,5 +213,9 @@ fn main() -> Result<Dictionary> {
         ("add_word", Object::from(add_word_fn)),
         ("remove_word", Object::from(remove_word_fn)),
         ("get_words", Object::from(get_words_fn)),
+        (
+            "does_support_language",
+            Object::from(does_support_language_fn),
+        ),
     ]));
 }

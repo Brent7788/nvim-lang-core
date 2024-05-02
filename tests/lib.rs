@@ -141,6 +141,7 @@ fn full_comment_should_be(#[case] path: &str, #[case] expected: Vec<Expected>) {
     let file_path = get_project_path(path);
 
     let core = NvimLangCore::new(None, None);
+    core.get_language_tool_client().docker_setup();
 
     let result = core.process_file(file_path, None);
 
