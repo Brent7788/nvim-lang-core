@@ -183,4 +183,29 @@ pub mod common_tests {
         let simple_string = simple_string.slice_between("*/", "/*");
         assert_eq!("Hello, This is a slice in between. end", simple_string);
     }
+
+    #[test]
+    fn simple_weird_string_slices_between_should_be() {
+        env::set_var("RUST_BACKTRACE", "1");
+
+        let simple_string = String::from("--[[ Run Neo Tree on Start 🌲]]");
+
+        let simple_string = simple_string.slice_between("--[[", "--]]");
+        assert_eq!(" Run Neo Tree on Start 🌲]]", simple_string);
+
+        let simple_string = String::from("--[[ Run Neo Tree on Start 🌲]]");
+
+        let simple_string = simple_string.slice_between("--[[", "]]");
+        assert_eq!(" Run Neo Tree on Start 🌲", simple_string);
+
+        let simple_string = String::from("🌲-🌲Run Neo Tree on Start🌲-🌲");
+
+        let simple_string = simple_string.slice_between("-", "-");
+        assert_eq!("🌲Run Neo Tree on Start🌲", simple_string);
+
+        let simple_string = String::from("🌲- Run Neo Tree on Start -🌲");
+
+        let simple_string = simple_string.slice_between("🌲", "🌲");
+        assert_eq!("- Run Neo Tree on Start -", simple_string);
+    }
 }

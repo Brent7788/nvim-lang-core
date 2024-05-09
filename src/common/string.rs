@@ -242,11 +242,17 @@ impl StringSlice for String {
         while index < original_len {
             if !start_offset_done
                 && index_start <= original_len
+                && self.is_char_boundary(index)
+                && self.is_char_boundary(index_start)
                 && &self[index..index_start] == start
             {
                 start_offset = index_start;
                 start_offset_done = true;
-            } else if index_end <= original_len && &self[index..index_end] == end {
+            } else if index_end <= original_len
+                && self.is_char_boundary(index)
+                && self.is_char_boundary(index_end)
+                && &self[index..index_end] == end
+            {
                 end_offset = index;
                 break;
             }

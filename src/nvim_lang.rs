@@ -1,7 +1,7 @@
 use std::sync::MutexGuard;
 
 use languagetool_rust::check::{Category, Match};
-use log::{debug, warn};
+use log::{debug, info, warn};
 use nvim_oxi::{
     conversion::{FromObject, ToObject},
     lua,
@@ -110,8 +110,6 @@ impl NvimLanguageFile {
         // debug!("CHUNk === *{}*{}", chunk, lang_match.sentence);
 
         if chunk.is_empty() {
-            // TODO: Find better warning message
-            warn!("One of the matches is empty");
             return;
         }
 
@@ -175,6 +173,10 @@ impl NvimLanguageFile {
         let context = &lang_match.context;
         let chunk = context.get_incorrect_chunk();
 
+        if chunk.is_empty() {
+            return;
+        }
+
         for line in &lang_tool_lines.prog_lines {
             let start_columns = get_target_offsets(&line.original_line, chunk);
 
@@ -222,6 +224,10 @@ impl NvimLanguageFile {
 
         let context = &lang_match.context;
         let chunk = context.get_incorrect_chunk();
+
+        if chunk.is_empty() {
+            return;
+        }
 
         if let Some(language_dictionary) = language_dictionary {
             if language_dictionary.exit_in_dictionary(chunk) {

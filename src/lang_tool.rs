@@ -7,7 +7,7 @@ use languagetool_rust::{
     check::{Context, Match},
     CheckResponse,
 };
-use log::{debug, info};
+use log::{debug, error, info};
 
 use crate::{
     lang_tool_client::LangToolClient,
@@ -40,8 +40,19 @@ pub trait LangTooContextTrait {
 
 impl LangTooContextTrait for Context {
     fn get_incorrect_chunk(&self) -> &str {
-        let offset = self.offset;
-        let length = self.offset + self.length;
+        let mut offset = self.offset;
+        let mut length = self.offset + self.length;
+
+        while !self.text.is_char_boundary(offset) {
+            offset += 1;
+            length += 1;
+        }
+
+        if self.text.len() < length {
+            error!("Char boundary incroment error in text: `{}`", self.text);
+            return "";
+        }
+
         return &self.text[offset..length];
     }
 }
