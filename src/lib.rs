@@ -9,6 +9,7 @@ use crate::{
     nvim_lang_dictionary::NvimLanguageDictionary,
 };
 
+pub mod code;
 pub mod common;
 pub mod lang_tool;
 pub mod lang_tool_client;
