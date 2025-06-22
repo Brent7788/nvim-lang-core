@@ -109,7 +109,7 @@ impl<const N: usize> StringPositionTrait<N> for [Option<StringPosition>; N] {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum DelimiterType {
     DelimiterStr(&'static str),
     DelimiterChar(char),
@@ -128,6 +128,14 @@ impl PartialEq<(usize, &[u8])> for &DelimiterType {
 }
 
 impl DelimiterType {
+    pub fn indexof(&self, value: &str) -> Option<usize> {
+        return match self {
+            DelimiterType::DelimiterStr(s) => value.find(s),
+            DelimiterType::DelimiterChar(c) => value.find(*c),
+            DelimiterType::None => None,
+        };
+    }
+
     fn is_equal(&self, index: usize, str_bytes: &[u8]) -> bool {
         return match self {
             DelimiterType::DelimiterStr(dlm_str) => {

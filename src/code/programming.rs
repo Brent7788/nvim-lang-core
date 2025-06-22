@@ -33,14 +33,16 @@ pub enum NamingConvetionType {
 #[derive(Debug)]
 pub struct ProgrammingLanguage<'lang> {
     pub extension: &'lang str,
-    comment_delimiter: &'lang str,
-    block_comment_delimiter_start: &'lang str,
-    block_comment_delimiter_end: &'lang str,
-    operators_and_syntax: Vec<&'lang str>,
-    reserved_keywords: Vec<&'lang str>,
-    string_syntax: [ProgrammingStringSyntax; 2],
-    naming_conventions: [NamingConvetionType; 2],
-    lang_type: ProgrammingLanguageType,
+    pub comment_delimiter: &'lang str,
+    pub block_comment_delimiter_start: &'lang str,
+    pub block_comment_delimiter_end: &'lang str,
+    pub block_comment: CodeBlockSyntax,
+    pub operators_and_syntax: Vec<&'lang str>,
+    pub reserved_keywords: Vec<&'lang str>,
+    pub string_syntax: [ProgrammingStringSyntax; 2],
+    pub block_string: CodeBlockSyntax,
+    pub naming_conventions: [NamingConvetionType; 2],
+    pub lang_type: ProgrammingLanguageType,
 }
 
 impl<'lang> ProgrammingLanguage<'lang> {
@@ -51,6 +53,34 @@ impl<'lang> ProgrammingLanguage<'lang> {
                 comment_delimiter: "--",
                 block_comment_delimiter_start: "--[[",
                 block_comment_delimiter_end: "--]]",
+                block_comment: CodeBlockSyntax {
+                    start_delmiters: [
+                        DelimiterType::DelimiterStr("--[["),
+                        DelimiterType::DelimiterStr("--[=["),
+                        DelimiterType::DelimiterStr("--[==["),
+                        DelimiterType::DelimiterStr("--[===["),
+                    ],
+                    end_delmiters: [
+                        DelimiterType::DelimiterStr("]]"),
+                        DelimiterType::DelimiterStr("]=]"),
+                        DelimiterType::DelimiterStr("]==]"),
+                        DelimiterType::DelimiterStr("]===]"),
+                    ],
+                },
+                block_string: CodeBlockSyntax {
+                    start_delmiters: [
+                        DelimiterType::DelimiterStr("[["),
+                        DelimiterType::DelimiterStr("[=["),
+                        DelimiterType::DelimiterStr("[==["),
+                        DelimiterType::DelimiterStr("[===["),
+                    ],
+                    end_delmiters: [
+                        DelimiterType::DelimiterStr("]]"),
+                        DelimiterType::DelimiterStr("]=]"),
+                        DelimiterType::DelimiterStr("]==]"),
+                        DelimiterType::DelimiterStr("]===]"),
+                    ],
+                },
                 string_syntax: [
                     ProgrammingStringSyntax {
                         string_delimiter: DelimiterType::DelimiterChar('"'),
@@ -84,6 +114,34 @@ impl<'lang> ProgrammingLanguage<'lang> {
                 comment_delimiter: "//",
                 block_comment_delimiter_start: "/*",
                 block_comment_delimiter_end: "*/",
+                block_comment: CodeBlockSyntax {
+                    start_delmiters: [
+                        DelimiterType::DelimiterStr("/*"),
+                        DelimiterType::None,
+                        DelimiterType::None,
+                        DelimiterType::None,
+                    ],
+                    end_delmiters: [
+                        DelimiterType::DelimiterStr("*/"),
+                        DelimiterType::None,
+                        DelimiterType::None,
+                        DelimiterType::None,
+                    ],
+                },
+                block_string: CodeBlockSyntax {
+                    start_delmiters: [
+                        DelimiterType::DelimiterStr("r#"),
+                        DelimiterType::DelimiterStr("r##"),
+                        DelimiterType::DelimiterStr("r###"),
+                        DelimiterType::DelimiterStr("r####"),
+                    ],
+                    end_delmiters: [
+                        DelimiterType::DelimiterStr("#"),
+                        DelimiterType::DelimiterStr("##"),
+                        DelimiterType::DelimiterStr("###"),
+                        DelimiterType::DelimiterStr("####"),
+                    ],
+                },
                 string_syntax: [
                     ProgrammingStringSyntax {
                         string_delimiter: DelimiterType::DelimiterChar('"'),
@@ -182,10 +240,104 @@ impl<'lang> ProgrammingLanguage<'lang> {
 
         return output;
     }
+
+    pub fn is_start_of_code_block(&self, line: &str) -> CodeBlockType {
+        let comment_code_block_line_syntax = self.block_comment.to_code_block_type(line);
+        let string_code_block_line_syntax = self.block_string.to_code_block_type(line);
+
+        // TODO: Need to use this index to set normal comment
+        let comment_indexof = line.find(self.comment_delimiter).unwrap_or(usize::MAX);
+
+        if comment_code_block_line_syntax.start_indexof
+            < string_code_block_line_syntax.start_indexof
+            && comment_code_block_line_syntax.start_indexof < comment_indexof
+        {
+            if !matches!(
+                comment_code_block_line_syntax.end_delimiter.indexof(line),
+                None
+            ) {
+                return CodeBlockType::None;
+            }
+
+            return CodeBlockType::Comment(comment_code_block_line_syntax);
+        }
+
+        if string_code_block_line_syntax.start_indexof
+            < comment_code_block_line_syntax.start_indexof
+            && string_code_block_line_syntax.start_indexof < comment_indexof
+        {
+            if !matches!(
+                string_code_block_line_syntax.end_delimiter.indexof(line),
+                None
+            ) {
+                return CodeBlockType::None;
+            }
+
+            return CodeBlockType::String(string_code_block_line_syntax);
+        }
+
+        return CodeBlockType::None;
+    }
 }
 
 #[derive(Debug, Default)]
 struct ProgrammingStringSyntax {
     string_delimiter: DelimiterType,
     string_ignore_delimiter: [DelimiterType; 2],
+}
+
+#[derive(Debug)]
+pub struct CodeBlockSyntax {
+    start_delmiters: [DelimiterType; 4],
+    end_delmiters: [DelimiterType; 4],
+}
+
+#[derive(Debug)]
+pub struct CodeBlockLineSyntax {
+    start_indexof: usize,
+    pub start_delimiter: DelimiterType,
+    pub end_delimiter: DelimiterType,
+}
+
+impl CodeBlockSyntax {
+    fn to_code_block_type(&self, value: &str) -> CodeBlockLineSyntax {
+        let mut index = 0;
+        let mut indexof = usize::MAX;
+        let mut start_delimiter_type = DelimiterType::None;
+        let mut end_delimiter_type = DelimiterType::None;
+        for start_delimiter in &self.start_delmiters {
+            if indexof != usize::MAX {
+                break;
+            }
+
+            match start_delimiter {
+                DelimiterType::DelimiterStr(s) => {
+                    indexof = value.find(s).unwrap_or(indexof);
+                    start_delimiter_type = *start_delimiter;
+                    end_delimiter_type = self.end_delmiters[index];
+                }
+                DelimiterType::DelimiterChar(c) => {
+                    indexof = value.find(*c).unwrap_or(indexof);
+                    start_delimiter_type = *start_delimiter;
+                    end_delimiter_type = self.end_delmiters[index];
+                }
+                DelimiterType::None => break,
+            }
+
+            index += 1;
+        }
+
+        return CodeBlockLineSyntax {
+            start_indexof: indexof,
+            start_delimiter: start_delimiter_type,
+            end_delimiter: end_delimiter_type,
+        };
+    }
+}
+
+#[derive(Debug)]
+pub enum CodeBlockType {
+    String(CodeBlockLineSyntax),
+    Comment(CodeBlockLineSyntax),
+    None,
 }
