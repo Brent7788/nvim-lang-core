@@ -1,5 +1,7 @@
 use std::str::from_utf8_unchecked;
 
+use log::info;
+
 use crate::common::string::DelimiterType;
 
 #[derive(Debug)]
@@ -31,145 +33,130 @@ pub enum NamingConvetionType {
 }
 
 #[derive(Debug)]
-pub struct ProgrammingLanguage<'lang> {
-    pub extension: &'lang str,
-    pub comment_delimiter: &'lang str,
-    pub block_comment_delimiter_start: &'lang str,
-    pub block_comment_delimiter_end: &'lang str,
+pub struct ProgrammingLanguage<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize> {
+    pub extension: &'static str,
+    pub comment_delimiter: &'static str,
     pub block_comment: CodeBlockSyntax,
-    pub operators_and_syntax: Vec<&'lang str>,
-    pub reserved_keywords: Vec<&'lang str>,
+    pub operators_and_syntax: [&'static str; OPERATOR_COUNT],
+    pub reserved_keywords: [&'static str; RESERVED_KEYWORD_COUNT],
     pub string_syntax: [ProgrammingStringSyntax; 2],
     pub block_string: CodeBlockSyntax,
     pub naming_conventions: [NamingConvetionType; 2],
     pub lang_type: ProgrammingLanguageType,
 }
 
-impl<'lang> ProgrammingLanguage<'lang> {
-    pub fn init() -> [ProgrammingLanguage<'lang>; 2] {
-        return [
-            ProgrammingLanguage {
-                extension: ".lua",
-                comment_delimiter: "--",
-                block_comment_delimiter_start: "--[[",
-                block_comment_delimiter_end: "--]]",
-                block_comment: CodeBlockSyntax {
-                    start_delmiters: [
-                        DelimiterType::DelimiterStr("--[["),
-                        DelimiterType::DelimiterStr("--[=["),
-                        DelimiterType::DelimiterStr("--[==["),
-                        DelimiterType::DelimiterStr("--[===["),
-                    ],
-                    end_delmiters: [
-                        DelimiterType::DelimiterStr("]]"),
-                        DelimiterType::DelimiterStr("]=]"),
-                        DelimiterType::DelimiterStr("]==]"),
-                        DelimiterType::DelimiterStr("]===]"),
-                    ],
-                },
-                block_string: CodeBlockSyntax {
-                    start_delmiters: [
-                        DelimiterType::DelimiterStr("[["),
-                        DelimiterType::DelimiterStr("[=["),
-                        DelimiterType::DelimiterStr("[==["),
-                        DelimiterType::DelimiterStr("[===["),
-                    ],
-                    end_delmiters: [
-                        DelimiterType::DelimiterStr("]]"),
-                        DelimiterType::DelimiterStr("]=]"),
-                        DelimiterType::DelimiterStr("]==]"),
-                        DelimiterType::DelimiterStr("]===]"),
-                    ],
-                },
-                string_syntax: [
-                    ProgrammingStringSyntax {
-                        string_delimiter: DelimiterType::DelimiterChar('"'),
-                        string_ignore_delimiter: [
-                            DelimiterType::DelimiterStr("\\\""),
-                            DelimiterType::None,
-                        ],
-                    },
-                    ProgrammingStringSyntax {
-                        string_delimiter: DelimiterType::DelimiterChar('\''),
-                        string_ignore_delimiter: [
-                            DelimiterType::DelimiterStr("\\\'"),
-                            DelimiterType::None,
-                        ],
-                    },
-                ],
-                reserved_keywords: vec![
-                    "and", "break", "do", "else", "elseif", "end", "false", "for", "function",
-                    "if", "in", "local", "nil", "not", "or", "repeat", "return", "then", "true",
-                    "until", "while",
-                ],
-                operators_and_syntax: vec![
-                    "_", "+", "-", "*", "/", "%", "=", "'", "\"", "~", ">", "<", "^", "/=", "%=",
-                    "(", ")", "[", "]", "{", "}", ";", ":", ",", "..", ".", "#",
-                ],
-                naming_conventions: [NamingConvetionType::None, NamingConvetionType::None],
-                lang_type: ProgrammingLanguageType::Lua,
-            },
-            ProgrammingLanguage {
-                extension: ".rs",
-                comment_delimiter: "//",
-                block_comment_delimiter_start: "/*",
-                block_comment_delimiter_end: "*/",
-                block_comment: CodeBlockSyntax {
-                    start_delmiters: [
-                        DelimiterType::DelimiterStr("/*"),
-                        DelimiterType::None,
-                        DelimiterType::None,
-                        DelimiterType::None,
-                    ],
-                    end_delmiters: [
-                        DelimiterType::DelimiterStr("*/"),
-                        DelimiterType::None,
-                        DelimiterType::None,
-                        DelimiterType::None,
-                    ],
-                },
-                block_string: CodeBlockSyntax {
-                    start_delmiters: [
-                        DelimiterType::DelimiterStr("r#"),
-                        DelimiterType::DelimiterStr("r##"),
-                        DelimiterType::DelimiterStr("r###"),
-                        DelimiterType::DelimiterStr("r####"),
-                    ],
-                    end_delmiters: [
-                        DelimiterType::DelimiterStr("#"),
-                        DelimiterType::DelimiterStr("##"),
-                        DelimiterType::DelimiterStr("###"),
-                        DelimiterType::DelimiterStr("####"),
-                    ],
-                },
-                string_syntax: [
-                    ProgrammingStringSyntax {
-                        string_delimiter: DelimiterType::DelimiterChar('"'),
-                        string_ignore_delimiter: [
-                            DelimiterType::DelimiterStr("\\\""),
-                            DelimiterType::None,
-                        ],
-                    },
-                    ProgrammingStringSyntax::default(),
-                ],
-                reserved_keywords: vec![
-                    "as", "async", "await", "break", "const", "continue", "crate", "dyn", "else",
-                    "enum", "extern", "false", "fn", "for", "if", "impl", "in", "let", "loop",
-                    "match", "mod", "move", "mut", "pub", "ref", "return", "Self", "self",
-                    "static", "struct", "super", "trait", "true", "type", "unsafe", "use", "where",
-                    "while", "str", "usize", "isize", "bool", "i8", "i16", "i32", "i64", "u8",
-                    "u16", "u32", "u64",
-                ],
-                operators_and_syntax: vec![
-                    "_", "+", "-", "*", "/", "%", "=", "\"", "!", ">", "<", "&", "|", "'", "^",
-                    "/=", "%=", "(", ")", "{", "}", "[", "]", ";", ":", ",", "..", ".", "#",
-                ],
-                naming_conventions: [NamingConvetionType::PascalCase, NamingConvetionType::None],
-                lang_type: ProgrammingLanguageType::Rust,
-            },
-        ];
-    }
+pub const LUA: ProgrammingLanguage<27, 21> = ProgrammingLanguage {
+    extension: ".lua",
+    comment_delimiter: "--",
+    block_comment: CodeBlockSyntax {
+        start_delmiters: [
+            DelimiterType::DelimiterStr("--[["),
+            DelimiterType::DelimiterStr("--[=["),
+            DelimiterType::DelimiterStr("--[==["),
+            DelimiterType::DelimiterStr("--[===["),
+        ],
+        end_delmiters: [
+            DelimiterType::DelimiterStr("]]"),
+            DelimiterType::DelimiterStr("]=]"),
+            DelimiterType::DelimiterStr("]==]"),
+            DelimiterType::DelimiterStr("]===]"),
+        ],
+    },
+    block_string: CodeBlockSyntax {
+        start_delmiters: [
+            DelimiterType::DelimiterStr("[["),
+            DelimiterType::DelimiterStr("[=["),
+            DelimiterType::DelimiterStr("[==["),
+            DelimiterType::DelimiterStr("[===["),
+        ],
+        end_delmiters: [
+            DelimiterType::DelimiterStr("]]"),
+            DelimiterType::DelimiterStr("]=]"),
+            DelimiterType::DelimiterStr("]==]"),
+            DelimiterType::DelimiterStr("]===]"),
+        ],
+    },
+    string_syntax: [
+        ProgrammingStringSyntax {
+            string_delimiter: DelimiterType::DelimiterChar('"'),
+            string_ignore_delimiter: [DelimiterType::DelimiterStr("\\\""), DelimiterType::None],
+        },
+        ProgrammingStringSyntax {
+            string_delimiter: DelimiterType::DelimiterChar('\''),
+            string_ignore_delimiter: [DelimiterType::DelimiterStr("\\\'"), DelimiterType::None],
+        },
+    ],
+    reserved_keywords: [
+        "and", "break", "do", "else", "elseif", "end", "false", "for", "function", "if", "in",
+        "local", "nil", "not", "or", "repeat", "return", "then", "true", "until", "while",
+    ],
+    operators_and_syntax: [
+        "_", "+", "-", "*", "/", "%", "=", "'", "\"", "~", ">", "<", "^", "/=", "%=", "(", ")",
+        "[", "]", "{", "}", ";", ":", ",", "..", ".", "#",
+    ],
+    naming_conventions: [NamingConvetionType::None, NamingConvetionType::None],
+    lang_type: ProgrammingLanguageType::Lua,
+};
 
+pub const RUST: ProgrammingLanguage<29, 50> = ProgrammingLanguage {
+    extension: ".rs",
+    comment_delimiter: "//",
+    block_comment: CodeBlockSyntax {
+        start_delmiters: [
+            DelimiterType::DelimiterStr("/*"),
+            DelimiterType::None,
+            DelimiterType::None,
+            DelimiterType::None,
+        ],
+        end_delmiters: [
+            DelimiterType::DelimiterStr("*/"),
+            DelimiterType::None,
+            DelimiterType::None,
+            DelimiterType::None,
+        ],
+    },
+    block_string: CodeBlockSyntax {
+        start_delmiters: [
+            DelimiterType::DelimiterStr("r#\""),
+            DelimiterType::DelimiterStr("r##\""),
+            DelimiterType::DelimiterStr("r###\""),
+            DelimiterType::DelimiterStr("r####\""),
+        ],
+        end_delmiters: [
+            DelimiterType::DelimiterStr("\"#"),
+            DelimiterType::DelimiterStr("\"##"),
+            DelimiterType::DelimiterStr("\"###"),
+            DelimiterType::DelimiterStr("\"####"),
+        ],
+    },
+    string_syntax: [
+        ProgrammingStringSyntax {
+            string_delimiter: DelimiterType::DelimiterChar('"'),
+            string_ignore_delimiter: [DelimiterType::DelimiterStr("\\\""), DelimiterType::None],
+        },
+        ProgrammingStringSyntax {
+            string_delimiter: DelimiterType::None,
+            string_ignore_delimiter: [DelimiterType::None, DelimiterType::None],
+        },
+    ],
+    reserved_keywords: [
+        "as", "async", "await", "break", "const", "continue", "crate", "dyn", "else", "enum",
+        "extern", "false", "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod", "move",
+        "mut", "pub", "ref", "return", "Self", "self", "static", "struct", "super", "trait",
+        "true", "type", "unsafe", "use", "where", "while", "str", "usize", "isize", "bool", "i8",
+        "i16", "i32", "i64", "u8", "u16", "u32", "u64",
+    ],
+    operators_and_syntax: [
+        "_", "+", "-", "*", "/", "%", "=", "\"", "!", ">", "<", "&", "|", "'", "^", "/=", "%=",
+        "(", ")", "{", "}", "[", "]", ";", ":", ",", "..", ".", "#",
+    ],
+    naming_conventions: [NamingConvetionType::PascalCase, NamingConvetionType::None],
+    lang_type: ProgrammingLanguageType::Rust,
+};
+
+impl<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
+    ProgrammingLanguage<OPERATOR_COUNT, RESERVED_KEYWORD_COUNT>
+{
     pub fn is_reserved_keyword(&self, input: &str) -> bool {
         for reserved_keyword in &self.reserved_keywords {
             if input == *reserved_keyword {
