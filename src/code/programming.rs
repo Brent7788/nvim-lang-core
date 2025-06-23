@@ -135,7 +135,7 @@ pub const RUST: ProgrammingLanguage<29, 50> = ProgrammingLanguage {
             string_ignore_delimiter: [DelimiterType::DelimiterStr("\\\""), DelimiterType::None],
         },
         ProgrammingStringSyntax {
-            string_delimiter: DelimiterType::None,
+            string_delimiter: DelimiterType::DelimiterChar('\''),
             string_ignore_delimiter: [DelimiterType::None, DelimiterType::None],
         },
     ],
@@ -268,9 +268,9 @@ impl<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
 }
 
 #[derive(Debug, Default)]
-struct ProgrammingStringSyntax {
-    string_delimiter: DelimiterType,
-    string_ignore_delimiter: [DelimiterType; 2],
+pub struct ProgrammingStringSyntax {
+    pub string_delimiter: DelimiterType,
+    pub string_ignore_delimiter: [DelimiterType; 2],
 }
 
 #[derive(Debug)]

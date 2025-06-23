@@ -6,7 +6,7 @@ use std::{
     sync::Arc,
 };
 
-use log::{error, warn};
+use log::{error, info, warn};
 use tokio::{runtime::Runtime, task::JoinHandle};
 
 use crate::common::string::{DelimiterType, StringDelimiterSlice};
@@ -14,15 +14,20 @@ use crate::common::string::{DelimiterType, StringDelimiterSlice};
 use super::programming::{CodeBlockLineSyntax, ProgrammingLanguage, ProgrammingLineType};
 
 #[derive(Debug)]
-pub struct CodeFile<'pf> {
+pub struct CodeFile<'pf, const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize> {
     pub file_path: &'pf str,
-    pub lang: &'pf ProgrammingLanguage<'pf>,
+    pub lang: &'static ProgrammingLanguage<OPERATOR_COUNT, RESERVED_KEYWORD_COUNT>,
     pub blocks: Vec<CodeBlock>,
-    pub lines: Vec<CodeLine<5>>,
+    pub lines: Vec<Code>,
 }
 
-impl<'pf> CodeFile<'pf> {
-    pub async fn create(file_path: &'pf str, lang: &'pf ProgrammingLanguage<'pf>) -> Self {
+impl<'pf, const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
+    CodeFile<'pf, OPERATOR_COUNT, RESERVED_KEYWORD_COUNT>
+{
+    pub async fn create(
+        file_path: &'pf str,
+        lang: &'static ProgrammingLanguage<OPERATOR_COUNT, RESERVED_KEYWORD_COUNT>,
+    ) -> Self {
         return CodeFile {
             file_path,
             blocks: Vec::new(),
@@ -45,11 +50,8 @@ impl<'pf> CodeFile<'pf> {
         };
 
         let file_buf_reader = BufReader::new(file);
-
         let mut hasher = DefaultHasher::new();
-        // let mut raw_lines = Vec::<String>::new();
-
-        let mut line_handles: Vec<JoinHandle<CodeLine<5>>> = Vec::new();
+        let mut line_handles: Vec<JoinHandle<Vec<Code>>> = Vec::new();
         let mut code_block: Option<CodeBlock> = None;
 
         for (index, line_res) in file_buf_reader.lines().enumerate() {
@@ -91,10 +93,11 @@ impl<'pf> CodeFile<'pf> {
                     }
                     super::programming::CodeBlockType::None => {
                         let hash = hasher.finish();
-                        line_handles.push(tokio::task::spawn(CodeLine::new(
+                        line_handles.push(tokio::task::spawn(Code::generate(
                             hash,
                             line_number,
                             line,
+                            self.lang,
                         )));
                         code_block
                     }
@@ -102,13 +105,20 @@ impl<'pf> CodeFile<'pf> {
 
                 continue;
             }
-            // TODO: Handle the unwrap
-            code_block = code_block.unwrap().push(line_number, line, &mut hasher);
+
+            if let Some(cb) = code_block {
+                let (current_code_block, push_code_block) = cb.push(line_number, line, &mut hasher);
+                code_block = current_code_block;
+
+                if let Some(push_code_block) = push_code_block {
+                    self.blocks.push(push_code_block);
+                }
+            }
         }
 
         for line_handle in line_handles {
             match line_handle.await {
-                Ok(code_line) => self.lines.push(code_line),
+                Ok(codes) => self.lines.extend(codes),
                 Err(e) => {
                     // TODO: Log error
                     error!("Unable to run line concurrently, Error: {:#?}", e);
@@ -118,16 +128,13 @@ impl<'pf> CodeFile<'pf> {
 
         return self;
     }
-
-    // TODO:
-    fn init_code_block(line: String) {}
 }
 
 #[derive(Debug)]
-struct CodeBlock {
+pub struct CodeBlock {
     pub hash: u64,
     block: String,
-    code_line: Vec<CodeLine<1>>,
+    code_line: Vec<CodeLine>,
     block_type: BlockType,
     code_block_current_line_syntax: CodeBlockLineSyntax,
 }
@@ -140,38 +147,30 @@ impl CodeBlock {
         block_type: BlockType,
         code_block_current_line_syntax: CodeBlockLineSyntax,
     ) -> Self {
-        let line_slices: [Option<&str>; 1] = line.slices_by(
-            &code_block_current_line_syntax.start_delimiter,
-            &[DelimiterType::None; 0],
-        );
-
-        let line_split = match code_block_current_line_syntax.start_delimiter {
-            DelimiterType::DelimiterStr(s) => line.split_once(s),
-            DelimiterType::DelimiterChar(c) => line.split_once(c),
-            DelimiterType::None => None,
-        };
-
-        let chunk: Arc<str> = match line_split {
-            Some((_, right)) => right.into(),
-            None => {
-                error!("Error in CodeBlock::New, unable to split line {}", line);
-                "".into()
-            }
-        };
-
-        let block = line.clone();
-
-        let code_chunk = CodeChunk {
-            chunk,
-            chunk_type: block_type.to_chunk_type(),
-        };
-
         let code_line = CodeLine {
             hash,
             line_number,
             original_line: line,
-            chunks: Some([Some(code_chunk)]),
         };
+
+        let line_split = match code_block_current_line_syntax.start_delimiter {
+            DelimiterType::DelimiterStr(s) => code_line.original_line.split_once(s),
+            DelimiterType::DelimiterChar(c) => code_line.original_line.split_once(c),
+            DelimiterType::None => None,
+        };
+
+        let block = match line_split {
+            Some((_, right)) => right,
+            None => {
+                error!(
+                    "Error in CodeBlock::New, unable to split line {}",
+                    code_line.original_line
+                );
+                "".into()
+            }
+        };
+
+        let block = block.to_string();
 
         return Self {
             hash: 0,
@@ -187,9 +186,10 @@ impl CodeBlock {
         line_number: usize,
         line: String,
         hasher: &mut DefaultHasher,
-    ) -> Option<CodeBlock> {
+    ) -> (Option<CodeBlock>, Option<CodeBlock>) {
         self.block.push_str(&line);
 
+        // TODO: If it is end line split away from the end block chunk
         let is_end = self.is_end(&line);
 
         self.push_line(hasher.finish(), line_number, line);
@@ -197,11 +197,10 @@ impl CodeBlock {
         if is_end {
             self.block.hash(hasher);
             self.hash = hasher.finish();
-            // TODO: On the block(self.block) remove the start and end block
-            return None;
+            return (None, Some(self));
         }
 
-        return Some(self);
+        return (Some(self), None);
     }
 
     fn is_end(&self, line: &str) -> bool {
@@ -213,22 +212,141 @@ impl CodeBlock {
     }
 
     fn push_line(&mut self, hash: u64, line_number: usize, line: String) {
-        let code_chunk = CodeChunk {
-            chunk: line.as_str().into(),
-            chunk_type: self.block_type.to_chunk_type(),
-        };
-
         let code_line = CodeLine {
             hash,
             line_number,
             original_line: line,
-            chunks: Some([Some(code_chunk)]),
         };
+
+        self.code_line.push(code_line);
     }
 }
 
 #[derive(Debug)]
-struct CodeLine<const CHUNK_COUNT: usize> {
+pub struct Code {
+    pub hash: u64,
+    pub value: String,
+    pub line: CodeLine,
+    pub tp: CodeType,
+}
+
+impl Code {
+    // TODO: Should not use Vec<Code>, for know it is simple
+    async fn generate<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>(
+        hash: u64,
+        line_number: usize,
+        mut line: String,
+        lang: &'static ProgrammingLanguage<OPERATOR_COUNT, RESERVED_KEYWORD_COUNT>,
+    ) -> Vec<Code> {
+        let code_line = CodeLine::new(hash, line_number, line.clone());
+
+        // BUG: This code will caus a bug
+        // let n = '"'; let t = "soemthing value";
+        let mut codes = Vec::<Code>::new();
+        loop {
+            let (new_line, code) = Code::new_comment_or_string(hash, code_line.clone(), line, lang);
+
+            line = new_line;
+            match code {
+                Some(code) => codes.push(code),
+                None => break,
+            }
+
+            // match code {
+            //     Some(code) => {
+            //         if let CodeType::String = code.tp {
+            //             codes.push(code);
+            //             break;
+            //         }
+            //         codes.push(code);
+            //     }
+            //     None => break,
+            // }
+        }
+
+        return codes;
+    }
+
+    // TODO: Find better name
+    fn new_comment_or_string<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>(
+        hash: u64,
+        code_line: CodeLine,
+        mut line: String,
+        lang: &'static ProgrammingLanguage<OPERATOR_COUNT, RESERVED_KEYWORD_COUNT>,
+    ) -> (String, Option<Code>) {
+        let comment_delimiter = lang.comment_delimiter;
+        let string_syntax_1 = &lang.string_syntax[0];
+        let string_syntax_2 = &lang.string_syntax[1];
+
+        let comment_indexof = line.find(lang.comment_delimiter).unwrap_or(usize::MAX);
+        let string_indexof_1 = string_syntax_1
+            .string_delimiter
+            .indexof(&line)
+            .unwrap_or(usize::MAX);
+        let string_indexof_2 = string_syntax_2
+            .string_delimiter
+            .indexof(&line)
+            .unwrap_or(usize::MAX);
+
+        if comment_indexof < string_indexof_1 && comment_indexof < string_indexof_2 {
+            // TODO: Code in this if should be in its own function
+            let comment_split = line.split_once(comment_delimiter);
+
+            line = match comment_split {
+                Some((left, right)) => {
+                    // TODO: Need to set hash
+                    return (
+                        left.to_owned(),
+                        Some(Code {
+                            hash,
+                            value: right.trim().to_owned(),
+                            line: code_line,
+                            tp: CodeType::Comment,
+                        }),
+                    );
+                }
+                None => line,
+            };
+        }
+
+        if string_indexof_1 < comment_indexof && string_indexof_1 < string_indexof_2 {
+            // TODO: Code in this if should be in its own function
+            let string_slices: [Option<&str>; 1] = line.slices_by(
+                &string_syntax_1.string_delimiter,
+                &string_syntax_1.string_ignore_delimiter,
+            );
+            line = match string_slices[0] {
+                Some(mut value) => {
+                    value = value.trim();
+
+                    if value.is_empty() {
+                        return (line, None);
+                    }
+
+                    if value.len() <= 3 {
+                        return (line.replace(value, ""), None);
+                    }
+
+                    return (
+                        line.replace(value, ""),
+                        Some(Code {
+                            hash,
+                            value: value.to_owned(),
+                            line: code_line,
+                            tp: CodeType::String,
+                        }),
+                    );
+                }
+                None => line,
+            };
+        }
+
+        return (line, None);
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CodeLine {
     // TODO: This functonality does not exit yet.
     // INFO: The hash will be used for caching. Will store the grammer result in a file with the
     //       hash. When the line hash is the same as the hash in the file us the file grammer
@@ -236,35 +354,16 @@ struct CodeLine<const CHUNK_COUNT: usize> {
     pub hash: u64,
     pub line_number: usize,
     pub original_line: String,
-    chunks: Option<[Option<CodeChunk>; CHUNK_COUNT]>,
 }
 
-impl<const CHUNK_COUNT: usize> CodeLine<CHUNK_COUNT> {
-    pub async fn new(hash: u64, line_number: usize, line: String) -> Self {
+impl CodeLine {
+    pub fn new(hash: u64, line_number: usize, line: String) -> Self {
         return Self {
             hash,
             line_number,
             original_line: line,
-            chunks: None,
         };
     }
-
-    pub fn is_new_line(&self) -> bool {
-        return matches!(self.chunks, None);
-    }
-}
-
-#[derive(Debug)]
-struct CodeChunk {
-    chunk: Arc<str>,
-    chunk_type: ChunkType,
-}
-
-#[derive(Debug)]
-enum ChunkType {
-    Code,
-    String,
-    Comment,
 }
 
 #[derive(Debug)]
@@ -273,11 +372,9 @@ enum BlockType {
     Comment,
 }
 
-impl BlockType {
-    fn to_chunk_type(&self) -> ChunkType {
-        return match self {
-            BlockType::String => ChunkType::String,
-            BlockType::Comment => ChunkType::Comment,
-        };
-    }
+#[derive(Debug)]
+pub enum CodeType {
+    Code,
+    Comment,
+    String,
 }
