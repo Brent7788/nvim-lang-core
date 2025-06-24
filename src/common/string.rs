@@ -1,3 +1,5 @@
+use std::str::{from_utf8, from_utf8_unchecked};
+
 use log::{debug, info};
 
 #[derive(Debug, Clone, Copy)]
@@ -127,12 +129,56 @@ impl PartialEq<(usize, &[u8])> for &DelimiterType {
     }
 }
 
+impl PartialEq<DelimiterType> for DelimiterType {
+    fn eq(&self, other: &DelimiterType) -> bool {
+        return self.is_equal_dlm(other);
+    }
+
+    fn ne(&self, other: &DelimiterType) -> bool {
+        !self.eq(other)
+    }
+}
+
 impl DelimiterType {
     pub fn indexof(&self, value: &str) -> Option<usize> {
         return match self {
             DelimiterType::DelimiterStr(s) => value.find(s),
             DelimiterType::DelimiterChar(c) => value.find(*c),
             DelimiterType::None => None,
+        };
+    }
+
+    pub fn r_indexof(&self, value: &str) -> Option<usize> {
+        return match self {
+            DelimiterType::DelimiterStr(s) => value.rfind(s),
+            DelimiterType::DelimiterChar(c) => value.rfind(*c),
+            DelimiterType::None => None,
+        };
+    }
+
+    fn is_equal_dlm(&self, right: &DelimiterType) -> bool {
+        return match self {
+            DelimiterType::DelimiterStr(left) => match right {
+                DelimiterType::DelimiterStr(right) => left == right,
+                DelimiterType::DelimiterChar(right) => {
+                    let left_as_bytes = left.as_bytes();
+                    return left_as_bytes.len() == 1 && left_as_bytes[0] == (*right as u8);
+                }
+                DelimiterType::None => false,
+            },
+            DelimiterType::DelimiterChar(left) => match right {
+                DelimiterType::DelimiterStr(right) => {
+                    let right_as_bytes = right.as_bytes();
+                    return right_as_bytes.len() == 1 && right_as_bytes[0] == (*left as u8);
+                }
+                DelimiterType::DelimiterChar(right) => left == right,
+                DelimiterType::None => false,
+            },
+            DelimiterType::None => match right {
+                DelimiterType::DelimiterStr(_) => false,
+                DelimiterType::DelimiterChar(_) => false,
+                DelimiterType::None => true,
+            },
         };
     }
 
@@ -177,6 +223,10 @@ pub trait StringDelimiterSlice<const S: usize, const D: usize> {
         delimiter: &DelimiterType,
         ignore_by_delimiters: &[DelimiterType; D],
     ) -> [Option<&str>; S];
+}
+
+pub trait StringDelimiter {
+    fn replace_by_delimiter(self, from: &DelimiterType, to: &str) -> String;
 }
 
 impl<const S: usize, const D: usize> StringDelimiterSlice<S, D> for String {
@@ -230,11 +280,46 @@ impl<const S: usize, const D: usize> StringDelimiterSlice<S, D> for String {
     }
 }
 
+impl StringDelimiter for String {
+    fn replace_by_delimiter(self, from: &DelimiterType, to: &str) -> String {
+        return match *from {
+            DelimiterType::DelimiterStr(from) => self.replace(from, to),
+            DelimiterType::DelimiterChar(from) => self.replace(from, to),
+            DelimiterType::None => self,
+        };
+    }
+}
+
 pub trait StringSlice {
+    fn delimiter_slice_between<'s>(
+        &'s self,
+        start: &'s DelimiterType,
+        end: &'s DelimiterType,
+    ) -> Option<&'s str>;
     fn slice_between<'s>(&'s self, start: &str, end: &str) -> &'s str;
 }
 
 impl StringSlice for String {
+    fn delimiter_slice_between<'s>(
+        &'s self,
+        start: &'s DelimiterType,
+        end: &'s DelimiterType,
+    ) -> Option<&'s str> {
+        let start = match start {
+            DelimiterType::DelimiterStr(s) => *s,
+            DelimiterType::DelimiterChar(c) => &c.to_string(),
+            DelimiterType::None => return None,
+        };
+
+        let end = match end {
+            DelimiterType::DelimiterStr(s) => *s,
+            DelimiterType::DelimiterChar(c) => &c.to_string(),
+            DelimiterType::None => return None,
+        };
+
+        return Some(self.slice_between(start, end));
+    }
+
     fn slice_between<'s>(&'s self, start: &str, end: &str) -> &'s str {
         let original_len = self.len();
         let start_len = start.len();

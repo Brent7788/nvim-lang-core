@@ -9,7 +9,10 @@ use std::{
 use log::{error, info, warn};
 use tokio::{runtime::Runtime, task::JoinHandle};
 
-use crate::common::string::{DelimiterType, StringDelimiterSlice};
+use crate::{
+    code::programming::ProgrammingStringSyntax,
+    common::string::{DelimiterType, StringDelimiter, StringDelimiterSlice, StringSlice},
+};
 
 use super::programming::{CodeBlockLineSyntax, ProgrammingLanguage, ProgrammingLineType};
 
@@ -240,30 +243,56 @@ impl Code {
     ) -> Vec<Code> {
         let code_line = CodeLine::new(hash, line_number, line.clone());
 
+        // HACK:
+        line = line.replace("&'", "");
+        line = line.replace("<'", "");
+
         // BUG: This code will caus a bug
         // let n = '"'; let t = "soemthing value";
         let mut codes = Vec::<Code>::new();
+        // TODO: Break loop after codes len is bigger the 20
         loop {
-            let (new_line, code) = Code::new_comment_or_string(hash, code_line.clone(), line, lang);
+            let code_line_state = Code::new_comment_or_string(hash, code_line.clone(), line, lang);
 
-            line = new_line;
-            match code {
-                Some(code) => codes.push(code),
-                None => break,
+            match code_line_state {
+                CodeLineState::ContinueWithResult(new_line, code) => {
+                    // info!("{}", line);
+                    // info!("{}", new_line);
+                    line = new_line;
+
+                    // TODO: Remove
+                    // if let CodeType::Comment = code.tp {
+                    //     continue;
+                    // }
+
+                    codes.push(code);
+                }
+                CodeLineState::Continue(new_line) => line = new_line,
+                CodeLineState::Done(new_line) => {
+                    line = new_line;
+                    break;
+                }
             }
-
-            // match code {
-            //     Some(code) => {
-            //         if let CodeType::String = code.tp {
-            //             codes.push(code);
-            //             break;
-            //         }
-            //         codes.push(code);
-            //     }
-            //     None => break,
-            // }
         }
 
+        line = lang.replase_all_operators_and_syntax_with_whitespace(line);
+        // line = lang.replase_all_reserved_keywords_with_whitespace(line);
+        line = line.trim().to_owned();
+
+        if line.is_empty() {
+            return codes;
+        }
+
+        let code = Code {
+            hash,
+            value: line,
+            line: code_line,
+            tp: CodeType::Code,
+        };
+        info!("{:#?}", code);
+        codes.push(code);
+        let n = vec!["one", "twho", r#"This is " a test"#, "threee"]; /* TODO: Should should not gon */
+        let k = ('"', r#"This is " a test"#, "tes\"ting", "ehell\"lo");
         return codes;
     }
 
@@ -273,7 +302,7 @@ impl Code {
         code_line: CodeLine,
         mut line: String,
         lang: &'static ProgrammingLanguage<OPERATOR_COUNT, RESERVED_KEYWORD_COUNT>,
-    ) -> (String, Option<Code>) {
+    ) -> CodeLineState {
         let comment_delimiter = lang.comment_delimiter;
         let string_syntax_1 = &lang.string_syntax[0];
         let string_syntax_2 = &lang.string_syntax[1];
@@ -287,62 +316,182 @@ impl Code {
             .string_delimiter
             .indexof(&line)
             .unwrap_or(usize::MAX);
+        let comment_block_line_syntax = lang.block_comment.get_code_block_line_syntax(&line);
+        let string_block_line_syntax = lang.block_string.get_code_block_line_syntax(&line);
 
-        if comment_indexof < string_indexof_1 && comment_indexof < string_indexof_2 {
-            // TODO: Code in this if should be in its own function
-            let comment_split = line.split_once(comment_delimiter);
-
-            line = match comment_split {
-                Some((left, right)) => {
-                    // TODO: Need to set hash
-                    return (
-                        left.to_owned(),
-                        Some(Code {
-                            hash,
-                            value: right.trim().to_owned(),
-                            line: code_line,
-                            tp: CodeType::Comment,
-                        }),
-                    );
-                }
-                None => line,
-            };
+        if comment_indexof < string_indexof_1
+            && comment_indexof < string_indexof_2
+            && comment_indexof < comment_block_line_syntax.start_indexof
+            && comment_indexof < string_block_line_syntax.start_indexof
+        {
+            return Code::new_comment(hash, line, code_line, comment_delimiter);
         }
 
-        if string_indexof_1 < comment_indexof && string_indexof_1 < string_indexof_2 {
-            // TODO: Code in this if should be in its own function
-            let string_slices: [Option<&str>; 1] = line.slices_by(
-                &string_syntax_1.string_delimiter,
-                &string_syntax_1.string_ignore_delimiter,
+        /* Tesging this */
+        if comment_block_line_syntax.start_indexof < string_indexof_1
+            && comment_block_line_syntax.start_indexof < string_indexof_2
+            && comment_block_line_syntax.start_indexof < string_block_line_syntax.start_indexof
+        {
+            return Code::new_block(
+                hash,
+                line,
+                code_line,
+                CodeType::Comment,
+                &comment_block_line_syntax,
             );
-            line = match string_slices[0] {
-                Some(mut value) => {
-                    value = value.trim();
-
-                    if value.is_empty() {
-                        return (line, None);
-                    }
-
-                    if value.len() <= 3 {
-                        return (line.replace(value, ""), None);
-                    }
-
-                    return (
-                        line.replace(value, ""),
-                        Some(Code {
-                            hash,
-                            value: value.to_owned(),
-                            line: code_line,
-                            tp: CodeType::String,
-                        }),
-                    );
-                }
-                None => line,
-            };
         }
 
-        return (line, None);
+        if string_block_line_syntax.start_indexof < string_indexof_1
+            && string_block_line_syntax.start_indexof < string_indexof_2
+        {
+            return Code::new_block(
+                hash,
+                line,
+                code_line,
+                CodeType::String,
+                &string_block_line_syntax,
+            );
+        }
+
+        if string_indexof_1 < string_indexof_2 {
+            return Code::new_string(hash, line, code_line, string_syntax_1);
+        }
+
+        if string_indexof_2 != usize::MAX {
+            return Code::new_string(hash, line, code_line, string_syntax_2);
+        }
+
+        return CodeLineState::Done(line);
     }
+
+    fn new_comment(
+        hash: u64,
+        line: String,
+        code_line: CodeLine,
+        comment_delimiter: &str,
+    ) -> CodeLineState {
+        let comment_split = line.split_once(comment_delimiter);
+
+        return match comment_split {
+            Some((left, right)) => CodeLineState::ContinueWithResult(
+                left.to_owned(),
+                Code {
+                    hash,
+                    value: right.trim().to_owned(),
+                    line: code_line,
+                    tp: CodeType::Comment,
+                },
+            ),
+            None => CodeLineState::Continue(line),
+        };
+    }
+
+    fn new_string(
+        hash: u64,
+        line: String,
+        code_line: CodeLine,
+        string_syntax: &ProgrammingStringSyntax,
+    ) -> CodeLineState {
+        return Code::new(
+            hash,
+            line,
+            code_line,
+            CodeType::String,
+            &string_syntax.string_delimiter,
+            &string_syntax.string_delimiter,
+            &string_syntax.string_ignore_delimiter,
+        );
+    }
+
+    fn new_block(
+        hash: u64,
+        line: String,
+        code_line: CodeLine,
+        code_type: CodeType,
+        block_line_syntax: &CodeBlockLineSyntax,
+    ) -> CodeLineState {
+        return Code::new(
+            hash,
+            line,
+            code_line,
+            code_type,
+            &block_line_syntax.start_delimiter,
+            &block_line_syntax.end_delimiter,
+            &[DelimiterType::None, DelimiterType::None],
+        );
+    }
+
+    fn new(
+        hash: u64,
+        line: String,
+        code_line: CodeLine,
+        code_type: CodeType,
+        start_delimiter: &DelimiterType,
+        end_delimiter: &DelimiterType,
+        ignore_by_delimiters: &[DelimiterType; 2],
+    ) -> CodeLineState {
+        // TODO: This will not work
+        // if let None = end_delimiter.r_indexof(&line) {
+        //     return CodeLineState::Continue(line.replace_by_delimiter(end_delimiter, ""));
+        // }
+
+        let mut string_slice: Option<&str> = None;
+
+        if start_delimiter == end_delimiter {
+            let string_slices: [Option<&str>; 1] =
+                line.slices_by(start_delimiter, ignore_by_delimiters);
+
+            string_slice = string_slices[0];
+        } else {
+            string_slice = line.delimiter_slice_between(start_delimiter, end_delimiter);
+        }
+
+        // TODO: Split string by nameing convetion. Ignore strings with code in it.
+        return match string_slice {
+            Some(mut value) => {
+                let mut replace_value = match start_delimiter {
+                    DelimiterType::DelimiterStr(s) => format!("{}{}", s, value),
+                    DelimiterType::DelimiterChar(c) => format!("{}{}", c, value),
+                    DelimiterType::None => String::new(),
+                };
+
+                replace_value = match end_delimiter {
+                    DelimiterType::DelimiterStr(s) => format!("{}{}", replace_value, s),
+                    DelimiterType::DelimiterChar(c) => format!("{}{}", replace_value, c),
+                    DelimiterType::None => String::new(),
+                };
+
+                value = value.trim();
+
+                if value.is_empty() {
+                    return CodeLineState::Continue(line.replace(&replace_value, ""));
+                }
+
+                // INFO: This will ignore two char blocks
+                if value.len() <= 2 {
+                    return CodeLineState::Continue(line.replace(&replace_value, ""));
+                }
+
+                return CodeLineState::ContinueWithResult(
+                    line.replace(&replace_value, ""),
+                    Code {
+                        hash,
+                        value: value.to_owned(),
+                        line: code_line,
+                        tp: code_type,
+                    },
+                );
+            }
+            None => CodeLineState::Continue(line),
+        };
+    }
+}
+
+#[derive(Debug)]
+enum CodeLineState {
+    ContinueWithResult(String, Code),
+    Continue(String),
+    Done(String),
 }
 
 #[derive(Debug, Clone)]
