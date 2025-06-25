@@ -1,28 +1,11 @@
 use std::str::from_utf8_unchecked;
 
-use log::info;
-
 use crate::common::string::DelimiterType;
 
 #[derive(Debug)]
 pub enum ProgrammingLanguageType {
     Lua,
     Rust,
-}
-
-#[derive(Debug)]
-pub enum ProgrammingLineType {
-    NewLine,
-    Code,
-    CodeWithComment,
-    CodeWithString,
-    CodeWithStringWithComment,
-    Comment,
-    BlockCommentStart,
-    BlockComment,
-    BlockCommentEnd,
-    BlockCommentStartAndEnd,
-    Unknown,
 }
 
 #[derive(Debug)]
@@ -43,6 +26,7 @@ pub struct ProgrammingLanguage<const OPERATOR_COUNT: usize, const RESERVED_KEYWO
     pub block_string: CodeBlockSyntax,
     pub naming_conventions: [NamingConvetionType; 2],
     pub lang_type: ProgrammingLanguageType,
+    post_replace: Option<[&'static str; 2]>,
 }
 
 pub const LUA: ProgrammingLanguage<27, 21> = ProgrammingLanguage {
@@ -96,6 +80,7 @@ pub const LUA: ProgrammingLanguage<27, 21> = ProgrammingLanguage {
     ],
     naming_conventions: [NamingConvetionType::None, NamingConvetionType::None],
     lang_type: ProgrammingLanguageType::Lua,
+    post_replace: None,
 };
 
 pub const RUST: ProgrammingLanguage<29, 50> = ProgrammingLanguage {
@@ -152,6 +137,7 @@ pub const RUST: ProgrammingLanguage<29, 50> = ProgrammingLanguage {
     ],
     naming_conventions: [NamingConvetionType::PascalCase, NamingConvetionType::None],
     lang_type: ProgrammingLanguageType::Rust,
+    post_replace: Some(["&'", "<'"]),
 };
 
 impl<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
@@ -167,25 +153,59 @@ impl<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
         return false;
     }
 
-    pub fn replase_all_operators_and_syntax_with_whitespace(&self, input: &str) -> String {
-        let mut transform = String::from(input);
+    pub fn post_replace_empty_space(&self, mut line: String) -> String {
+        return match self.post_replace {
+            Some(r) => {
+                for c in r {
+                    line = line.replace(c, "");
+                }
 
+                return line;
+            }
+            None => line,
+        };
+    }
+
+    pub fn replase_all_operators_and_syntax_with_whitespace(&self, mut input: String) -> String {
         for op_snt in &self.operators_and_syntax {
-            transform = transform.replace(op_snt, " ");
+            input = input.replace(op_snt, " ");
+        }
+
+        return input;
+    }
+
+    pub fn replase_all_reserved_keywords_with_whitespace(&self, mut input: String) -> String {
+        let mut transform = String::new();
+        let split_whitespace = input.split_whitespace();
+
+        'ignore_chunk: for chunk in split_whitespace {
+            let chunk = chunk.trim();
+            // HACK: This will ignore all one/two char words
+            if chunk.len() <= 2 {
+                continue;
+            }
+
+            for keyword in self.reserved_keywords {
+                if keyword == chunk {
+                    continue 'ignore_chunk;
+                }
+            }
+
+            let chunk = self.split_by_uppercase(chunk);
+            let chunk = chunk.trim();
+            transform.push_str(chunk);
+            transform.push(' ');
         }
 
         return transform;
     }
 
     // WARN: This might not work on utf16 strings!
-    pub fn split_by_naming_conventions<'i>(&self, input: &'i str) -> String {
+    fn split_by_uppercase<'i>(&self, word: &'i str) -> String {
         // TODO: Need to remove this const and put it somewhere else.
-        const LOWERCASE_UTF8: &[u8] = b"abcdefghijklmnopqrstuvwxyz";
         const UPPERCASE_UTF8: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         let mut output = String::new();
-        // let mut output: Vec<&str> = Vec::new();
-
-        let input_bytes = input.as_bytes();
+        let input_bytes = word.as_bytes();
         let mut current_index: usize = 0;
         let mut start_index: usize = 0;
         let mut is_first_uppercase = true;
@@ -203,7 +223,6 @@ impl<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
                     let utf8_input = unsafe { from_utf8_unchecked(input_byte_slice) };
                     output.push(' ');
                     output.push_str(utf8_input);
-                    // output.push(k);
                     start_index = current_index;
                     break;
                 }
@@ -217,20 +236,18 @@ impl<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
             let utf8_input = unsafe { from_utf8_unchecked(input_byte_slice) };
             output.push(' ');
             output.push_str(utf8_input);
-            // output.push(k);
         }
 
         if output.is_empty() {
-            return String::from(input);
-            // output.push(input);
+            return String::from(word);
         }
 
         return output;
     }
 
     pub fn is_start_of_code_block(&self, line: &str) -> CodeBlockType {
-        let comment_code_block_line_syntax = self.block_comment.to_code_block_type(line);
-        let string_code_block_line_syntax = self.block_string.to_code_block_type(line);
+        let comment_code_block_line_syntax = self.block_comment.get_code_block_line_syntax(line);
+        let string_code_block_line_syntax = self.block_string.get_code_block_line_syntax(line);
 
         // TODO: Need to use this index to set normal comment
         let comment_indexof = line.find(self.comment_delimiter).unwrap_or(usize::MAX);
@@ -281,13 +298,13 @@ pub struct CodeBlockSyntax {
 
 #[derive(Debug)]
 pub struct CodeBlockLineSyntax {
-    start_indexof: usize,
+    pub start_indexof: usize,
     pub start_delimiter: DelimiterType,
     pub end_delimiter: DelimiterType,
 }
 
 impl CodeBlockSyntax {
-    fn to_code_block_type(&self, value: &str) -> CodeBlockLineSyntax {
+    pub fn get_code_block_line_syntax(&self, value: &str) -> CodeBlockLineSyntax {
         let mut index = 0;
         let mut indexof = usize::MAX;
         let mut start_delimiter_type = DelimiterType::None;

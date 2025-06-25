@@ -14,7 +14,7 @@ use crate::{
     common::string::{DelimiterType, StringDelimiter, StringDelimiterSlice, StringSlice},
 };
 
-use super::programming::{CodeBlockLineSyntax, ProgrammingLanguage, ProgrammingLineType};
+use super::programming::{CodeBlockLineSyntax, ProgrammingLanguage};
 
 #[derive(Debug)]
 pub struct CodeFile<'pf, const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize> {
@@ -243,28 +243,21 @@ impl Code {
     ) -> Vec<Code> {
         let code_line = CodeLine::new(hash, line_number, line.clone());
 
-        // HACK:
-        line = line.replace("&'", "");
-        line = line.replace("<'", "");
+        line = lang.post_replace_empty_space(line);
 
-        // BUG: This code will caus a bug
-        // let n = '"'; let t = "soemthing value";
         let mut codes = Vec::<Code>::new();
-        // TODO: Break loop after codes len is bigger the 20
         loop {
+            // WARN: This is just for safty
+            if codes.len() > 20 {
+                error!("Code::generate posible infinit loop. Line: {}", line);
+                break;
+            }
+
             let code_line_state = Code::new_comment_or_string(hash, code_line.clone(), line, lang);
 
             match code_line_state {
                 CodeLineState::ContinueWithResult(new_line, code) => {
-                    // info!("{}", line);
-                    // info!("{}", new_line);
                     line = new_line;
-
-                    // TODO: Remove
-                    // if let CodeType::Comment = code.tp {
-                    //     continue;
-                    // }
-
                     codes.push(code);
                 }
                 CodeLineState::Continue(new_line) => line = new_line,
@@ -276,7 +269,7 @@ impl Code {
         }
 
         line = lang.replase_all_operators_and_syntax_with_whitespace(line);
-        // line = lang.replase_all_reserved_keywords_with_whitespace(line);
+        line = lang.replase_all_reserved_keywords_with_whitespace(line);
         line = line.trim().to_owned();
 
         if line.is_empty() {
@@ -289,10 +282,7 @@ impl Code {
             line: code_line,
             tp: CodeType::Code,
         };
-        info!("{:#?}", code);
         codes.push(code);
-        let n = vec!["one", "twho", r#"This is " a test"#, "threee"]; /* TODO: Should should not gon */
-        let k = ('"', r#"This is " a test"#, "tes\"ting", "ehell\"lo");
         return codes;
     }
 
