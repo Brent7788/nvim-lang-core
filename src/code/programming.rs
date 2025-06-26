@@ -1,5 +1,7 @@
 use std::str::from_utf8_unchecked;
 
+use log::info;
+
 use crate::common::string::DelimiterType;
 
 #[derive(Debug)]
@@ -153,7 +155,7 @@ impl<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
         return false;
     }
 
-    pub fn post_replace_empty_space(&self, mut line: String) -> String {
+    pub fn post_replace_with_empty_space(&self, mut line: String) -> String {
         return match self.post_replace {
             Some(r) => {
                 for c in r {
@@ -191,6 +193,7 @@ impl<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
                 }
             }
 
+            // BUG: All caps word like this 'TEXT' look like this 'T E X T'
             let chunk = self.split_by_uppercase(chunk);
             let chunk = chunk.trim();
             transform.push_str(chunk);
@@ -212,17 +215,30 @@ impl<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
 
         for input_byte in input_bytes {
             for up_alp in UPPERCASE_UTF8 {
-                if input_byte == up_alp && is_first_uppercase {
+                // INFO: Ignore first uppercase char
+                if input_byte == up_alp && start_index == current_index {
                     start_index = current_index;
-                    is_first_uppercase = false;
+                    break;
+                }
+
+                //INFO: Ignore consecitive uppercase chars
+                if input_byte == up_alp && (current_index - start_index) == 1 {
+                    let input_byte_slice = &input_bytes[start_index..current_index];
+                    let utf8_input = unsafe { from_utf8_unchecked(input_byte_slice) };
+                    output.push_str(utf8_input);
+                    start_index = current_index;
                     break;
                 }
 
                 if input_byte == up_alp {
                     let input_byte_slice = &input_bytes[start_index..current_index];
                     let utf8_input = unsafe { from_utf8_unchecked(input_byte_slice) };
-                    output.push(' ');
+                    if is_first_uppercase {
+                        output.push(' ');
+                        is_first_uppercase = false;
+                    }
                     output.push_str(utf8_input);
+                    output.push(' ');
                     start_index = current_index;
                     break;
                 }
@@ -231,9 +247,16 @@ impl<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
             current_index += 1;
         }
 
-        if start_index < current_index {
+        //INFO: Ignore the last consective uppercase char
+        if (current_index - start_index) == 1 {
             let input_byte_slice = &input_bytes[start_index..current_index];
             let utf8_input = unsafe { from_utf8_unchecked(input_byte_slice) };
+            output.push_str(utf8_input);
+            start_index = current_index;
+        } else if start_index < current_index {
+            let input_byte_slice = &input_bytes[start_index..current_index];
+            let utf8_input = unsafe { from_utf8_unchecked(input_byte_slice) };
+            output = output.trim_end().to_owned();
             output.push(' ');
             output.push_str(utf8_input);
         }
@@ -254,7 +277,7 @@ impl<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
 
         if comment_code_block_line_syntax.start_indexof
             < string_code_block_line_syntax.start_indexof
-            && comment_code_block_line_syntax.start_indexof < comment_indexof
+            && comment_code_block_line_syntax.start_indexof <= comment_indexof
         {
             if !matches!(
                 comment_code_block_line_syntax.end_delimiter.indexof(line),

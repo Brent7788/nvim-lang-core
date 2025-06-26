@@ -227,6 +227,7 @@ pub trait StringDelimiterSlice<const S: usize, const D: usize> {
 
 pub trait StringDelimiter {
     fn replace_by_delimiter(self, from: &DelimiterType, to: &str) -> String;
+    fn trim_end_by_delimiter(&self, from: &DelimiterType) -> &str;
 }
 
 impl<const S: usize, const D: usize> StringDelimiterSlice<S, D> for String {
@@ -285,6 +286,32 @@ impl StringDelimiter for String {
         return match *from {
             DelimiterType::DelimiterStr(from) => self.replace(from, to),
             DelimiterType::DelimiterChar(from) => self.replace(from, to),
+            DelimiterType::None => self,
+        };
+    }
+
+    fn trim_end_by_delimiter(&self, from: &DelimiterType) -> &str {
+        return match *from {
+            DelimiterType::DelimiterStr(from) => self.trim_end_matches(from),
+            DelimiterType::DelimiterChar(from) => self.trim_end_matches(from),
+            DelimiterType::None => self,
+        };
+    }
+}
+
+impl StringDelimiter for &str {
+    fn replace_by_delimiter(self, from: &DelimiterType, to: &str) -> String {
+        return match *from {
+            DelimiterType::DelimiterStr(from) => self.replace(from, to),
+            DelimiterType::DelimiterChar(from) => self.replace(from, to),
+            DelimiterType::None => self.to_owned(),
+        };
+    }
+
+    fn trim_end_by_delimiter(&self, from: &DelimiterType) -> &str {
+        return match *from {
+            DelimiterType::DelimiterStr(from) => self.trim_end_matches(from),
+            DelimiterType::DelimiterChar(from) => self.trim_end_matches(from),
             DelimiterType::None => self,
         };
     }

@@ -1,3 +1,4 @@
+mod code_file_tests;
 use std::env;
 
 use log::debug;

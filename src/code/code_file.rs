@@ -110,7 +110,8 @@ impl<'pf, const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
             }
 
             if let Some(cb) = code_block {
-                let (current_code_block, push_code_block) = cb.push(line_number, line, &mut hasher);
+                let (current_code_block, push_code_block) =
+                    cb.push(line_number, line, &mut hasher, self.lang);
                 code_block = current_code_block;
 
                 if let Some(push_code_block) = push_code_block {
@@ -123,7 +124,6 @@ impl<'pf, const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
             match line_handle.await {
                 Ok(codes) => self.lines.extend(codes),
                 Err(e) => {
-                    // TODO: Log error
                     error!("Unable to run line concurrently, Error: {:#?}", e);
                 }
             }
@@ -136,9 +136,9 @@ impl<'pf, const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
 #[derive(Debug)]
 pub struct CodeBlock {
     pub hash: u64,
-    block: String,
-    code_line: Vec<CodeLine>,
-    block_type: BlockType,
+    pub block: String,
+    pub lines: Vec<CodeLine>,
+    pub block_type: BlockType,
     code_block_current_line_syntax: CodeBlockLineSyntax,
 }
 
@@ -173,26 +173,28 @@ impl CodeBlock {
             }
         };
 
-        let block = block.to_string();
+        let mut block = block.to_string();
+        block.push('\n');
 
         return Self {
             hash: 0,
             block,
-            code_line: vec![code_line],
+            lines: vec![code_line],
             block_type,
             code_block_current_line_syntax,
         };
     }
 
-    pub fn push(
+    pub fn push<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>(
         mut self,
         line_number: usize,
         line: String,
         hasher: &mut DefaultHasher,
+        lang: &'static ProgrammingLanguage<OPERATOR_COUNT, RESERVED_KEYWORD_COUNT>,
     ) -> (Option<CodeBlock>, Option<CodeBlock>) {
         self.block.push_str(&line);
+        self.block.push('\n');
 
-        // TODO: If it is end line split away from the end block chunk
         let is_end = self.is_end(&line);
 
         self.push_line(hasher.finish(), line_number, line);
@@ -200,6 +202,14 @@ impl CodeBlock {
         if is_end {
             self.block.hash(hasher);
             self.hash = hasher.finish();
+            self.block = self
+                .block
+                .trim()
+                .trim_end_by_delimiter(&self.code_block_current_line_syntax.end_delimiter)
+                .trim()
+                .trim_end_matches(&lang.comment_delimiter)
+                .trim()
+                .to_owned();
             return (None, Some(self));
         }
 
@@ -221,7 +231,7 @@ impl CodeBlock {
             original_line: line,
         };
 
-        self.code_line.push(code_line);
+        self.lines.push(code_line);
     }
 }
 
@@ -243,7 +253,7 @@ impl Code {
     ) -> Vec<Code> {
         let code_line = CodeLine::new(hash, line_number, line.clone());
 
-        line = lang.post_replace_empty_space(line);
+        line = lang.post_replace_with_empty_space(line);
 
         let mut codes = Vec::<Code>::new();
         loop {
@@ -317,7 +327,6 @@ impl Code {
             return Code::new_comment(hash, line, code_line, comment_delimiter);
         }
 
-        /* Tesging this */
         if comment_block_line_syntax.start_indexof < string_indexof_1
             && comment_block_line_syntax.start_indexof < string_indexof_2
             && comment_block_line_syntax.start_indexof < string_block_line_syntax.start_indexof
@@ -420,11 +429,6 @@ impl Code {
         end_delimiter: &DelimiterType,
         ignore_by_delimiters: &[DelimiterType; 2],
     ) -> CodeLineState {
-        // TODO: This will not work
-        // if let None = end_delimiter.r_indexof(&line) {
-        //     return CodeLineState::Continue(line.replace_by_delimiter(end_delimiter, ""));
-        // }
-
         let mut string_slice: Option<&str> = None;
 
         if start_delimiter == end_delimiter {
