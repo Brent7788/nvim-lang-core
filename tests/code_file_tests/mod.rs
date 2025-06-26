@@ -17,10 +17,10 @@ use nvim_lang_core::{
 
 #[rstest]
 #[case("/rust/edge_case.rs", ProgrammingLanguageType::Rust)]
-// #[case("/lua/strings/simple_string.lua", ProgrammingLanguageType::Lua)]
+#[case("/lua/edge_case.lua", ProgrammingLanguageType::Lua)]
 fn edge_case_should_be(#[case] path: &str, #[case] lang_type: ProgrammingLanguageType) {
     // env::set_var("RUST_BACKTRACE", "1");
-    Logger::console_init();
+    // Logger::console_init();
     let runtime = Runtime::new().expect("");
 
     let file_path = get_project_path(path);
@@ -38,7 +38,7 @@ fn edge_case_should_be(#[case] path: &str, #[case] lang_type: ProgrammingLanguag
         fn assert_code_file<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>(
             code_file: CodeFile<OPERATOR_COUNT, RESERVED_KEYWORD_COUNT>,
         ) {
-            assert_eq!(6, code_file.lines.len());
+            assert_eq!(10, code_file.lines.len());
             let line = &code_file.lines[0];
             assert_ne!(0, line.hash);
             assert_eq!(2, line.line.line_number);
@@ -72,5 +72,55 @@ fn edge_case_should_be(#[case] path: &str, #[case] lang_type: ProgrammingLanguag
         }
     });
 
-    log::logger().flush();
+    // log::logger().flush();
+}
+//
+#[rstest]
+#[case("/rust/edge_case.rs", ProgrammingLanguageType::Rust)]
+#[case("/lua/edge_case.lua", ProgrammingLanguageType::Lua)]
+fn edge_case_2_should_be(#[case] path: &str, #[case] lang_type: ProgrammingLanguageType) {
+    // env::set_var("RUST_BACKTRACE", "1");
+    // Logger::console_init();
+    let runtime = Runtime::new().expect("");
+
+    let file_path = get_project_path(path);
+
+    runtime.block_on(async {
+        match lang_type {
+            ProgrammingLanguageType::Lua => {
+                assert_code_file(CodeFile::create(&file_path, &LUA).await)
+            }
+            ProgrammingLanguageType::Rust => {
+                assert_code_file(CodeFile::create(&file_path, &RUST).await)
+            }
+        }
+
+        fn assert_code_file<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>(
+            code_file: CodeFile<OPERATOR_COUNT, RESERVED_KEYWORD_COUNT>,
+        ) {
+            assert_eq!(0, code_file.blocks.len());
+            let line = &code_file.lines[6];
+            assert_ne!(0, line.hash);
+            assert_eq!(5, line.line.line_number);
+            assert_eq!("Start '\" block", line.value);
+            assert_eq!(true, matches!(line.tp, CodeType::Comment));
+            let line = &code_file.lines[7];
+            assert_ne!(0, line.hash);
+            assert_eq!(5, line.line.line_number);
+            assert_eq!(r##"This is "# string block"##, line.value);
+            assert_eq!(true, matches!(line.tp, CodeType::String));
+            let line = &code_file.lines[8];
+            assert_ne!(0, line.hash);
+            assert_eq!(5, line.line.line_number);
+            assert_eq!(r#"This is a "block""#, line.value);
+            assert_eq!(true, matches!(line.tp, CodeType::Comment));
+            let line = &code_file.lines[9];
+            assert_ne!(0, line.hash);
+            assert_eq!(5, line.line.line_number);
+            assert_eq!(r#"This is "end comment"#, line.value);
+            assert_eq!(true, matches!(line.tp, CodeType::Comment));
+        }
+    });
+
+    // log::logger().flush();
 }

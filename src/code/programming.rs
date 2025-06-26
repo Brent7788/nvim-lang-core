@@ -205,7 +205,6 @@ impl<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
 
     // WARN: This might not work on utf16 strings!
     fn split_by_uppercase<'i>(&self, word: &'i str) -> String {
-        // TODO: Need to remove this const and put it somewhere else.
         const UPPERCASE_UTF8: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         let mut output = String::new();
         let input_bytes = word.as_bytes();
