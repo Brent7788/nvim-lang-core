@@ -2,7 +2,7 @@ use std::str::from_utf8_unchecked;
 
 use log::info;
 
-use crate::common::string::DelimiterType;
+use crate::{common::string::DelimiterType, nvim_lang_dictionary::NvimLanguageReadonlyDictionary};
 
 #[derive(Debug)]
 pub enum ProgrammingLanguageType {
@@ -176,7 +176,12 @@ impl<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
         return input;
     }
 
-    pub fn replase_all_reserved_keywords_with_whitespace(&self, mut input: String) -> String {
+    // FIX: Name of function is doing a lot more then what the name is saying
+    pub fn replase_all_reserved_keywords_with_whitespace(
+        &self,
+        mut input: String,
+        nvim_language_readonly_dictionary: &NvimLanguageReadonlyDictionary,
+    ) -> String {
         let mut transform = String::new();
         let split_whitespace = input.split_whitespace();
 
@@ -193,7 +198,10 @@ impl<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
                 }
             }
 
-            // BUG: All caps word like this 'TEXT' look like this 'T E X T'
+            if nvim_language_readonly_dictionary.exit_in_dictionary(chunk) {
+                continue;
+            }
+
             let chunk = self.split_by_uppercase(chunk);
             let chunk = chunk.trim();
             transform.push_str(chunk);

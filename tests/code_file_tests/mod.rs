@@ -3,6 +3,7 @@ pub mod code_file_comment_tests;
 pub mod code_file_string_tests;
 
 use log::info;
+use nvim_lang_core::nvim_lang_dictionary::NvimLanguageDictionary;
 use rstest::rstest;
 use std::env;
 use tokio::runtime::{self, Runtime};
@@ -26,13 +27,14 @@ fn edge_case_should_be(#[case] path: &str, #[case] lang_type: ProgrammingLanguag
     let file_path = get_project_path(path);
 
     runtime.block_on(async {
+        let nvim_language_dictionary = NvimLanguageDictionary::new(true);
         match lang_type {
-            ProgrammingLanguageType::Lua => {
-                assert_code_file(CodeFile::create(&file_path, &LUA).await)
-            }
-            ProgrammingLanguageType::Rust => {
-                assert_code_file(CodeFile::create(&file_path, &RUST).await)
-            }
+            ProgrammingLanguageType::Lua => assert_code_file(
+                CodeFile::create(&file_path, &LUA, nvim_language_dictionary.to_readonly()).await,
+            ),
+            ProgrammingLanguageType::Rust => assert_code_file(
+                CodeFile::create(&file_path, &RUST, nvim_language_dictionary.to_readonly()).await,
+            ),
         }
 
         fn assert_code_file<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>(
@@ -86,13 +88,14 @@ fn edge_case_2_should_be(#[case] path: &str, #[case] lang_type: ProgrammingLangu
     let file_path = get_project_path(path);
 
     runtime.block_on(async {
+        let nvim_language_dictionary = NvimLanguageDictionary::new(true);
         match lang_type {
-            ProgrammingLanguageType::Lua => {
-                assert_code_file(CodeFile::create(&file_path, &LUA).await)
-            }
-            ProgrammingLanguageType::Rust => {
-                assert_code_file(CodeFile::create(&file_path, &RUST).await)
-            }
+            ProgrammingLanguageType::Lua => assert_code_file(
+                CodeFile::create(&file_path, &LUA, nvim_language_dictionary.to_readonly()).await,
+            ),
+            ProgrammingLanguageType::Rust => assert_code_file(
+                CodeFile::create(&file_path, &RUST, nvim_language_dictionary.to_readonly()).await,
+            ),
         }
 
         fn assert_code_file<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>(

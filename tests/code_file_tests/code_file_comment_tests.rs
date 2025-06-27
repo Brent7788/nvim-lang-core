@@ -1,4 +1,5 @@
 use log::info;
+use nvim_lang_core::nvim_lang_dictionary::NvimLanguageDictionary;
 use rstest::rstest;
 use std::env;
 use tokio::runtime::{self, Runtime};
@@ -31,7 +32,9 @@ fn rust_comment_should_be(#[case] path: &str, #[case] values: Vec<(usize, usize,
     let file_path = get_project_path(path);
 
     runtime.block_on(async {
-        let code_file = CodeFile::create(&file_path, &RUST).await;
+        let nvim_language_dictionary = NvimLanguageDictionary::new(true);
+        let code_file =
+            CodeFile::create(&file_path, &RUST, nvim_language_dictionary.to_readonly()).await;
         for (index, data) in values.iter().enumerate() {
             assert_eq!(data.0, code_file.lines.len());
             let line = &code_file.lines[index];
@@ -72,7 +75,9 @@ fn rust_block_comment_should_be(#[case] path: &str, #[case] values: Vec<(usize, 
     let file_path = get_project_path(path);
 
     runtime.block_on(async {
-        let code_file = CodeFile::create(&file_path, &RUST).await;
+        let nvim_language_dictionary = NvimLanguageDictionary::new(true);
+        let code_file =
+            CodeFile::create(&file_path, &RUST, nvim_language_dictionary.to_readonly()).await;
         for (index, data) in values.iter().enumerate() {
             assert_eq!(data.0, code_file.blocks.len());
             let block = &code_file.blocks[index];
@@ -105,7 +110,9 @@ fn lua_comment_should_be(#[case] path: &str, #[case] values: Vec<(usize, usize, 
     let file_path = get_project_path(path);
 
     runtime.block_on(async {
-        let code_file = CodeFile::create(&file_path, &LUA).await;
+        let nvim_language_dictionary = NvimLanguageDictionary::new(true);
+        let code_file =
+            CodeFile::create(&file_path, &LUA, nvim_language_dictionary.to_readonly()).await;
         for (index, data) in values.iter().enumerate() {
             assert_eq!(data.0, code_file.lines.len());
             let line = &code_file.lines[index];
@@ -146,7 +153,9 @@ fn lua_block_comment_should_be(#[case] path: &str, #[case] values: Vec<(usize, u
     let file_path = get_project_path(path);
 
     runtime.block_on(async {
-        let code_file = CodeFile::create(&file_path, &LUA).await;
+        let nvim_language_dictionary = NvimLanguageDictionary::new(true);
+        let code_file =
+            CodeFile::create(&file_path, &LUA, nvim_language_dictionary.to_readonly()).await;
         // info!("{:#?}", code_file.blocks);
         for (index, data) in values.iter().enumerate() {
             assert_eq!(data.0, code_file.blocks.len());

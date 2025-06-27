@@ -3,6 +3,7 @@ use rstest::rstest;
 use std::env;
 use tokio::runtime::{self, Runtime};
 
+use nvim_lang_core::nvim_lang_dictionary::NvimLanguageDictionary;
 use nvim_lang_core::{
     code::{
         code_file::{CodeFile, CodeType},
@@ -22,9 +23,10 @@ fn simple_string_should_be(#[case] path: &str, #[case] lang_type: ProgrammingLan
     let file_path = get_project_path(path);
 
     runtime.block_on(async {
+        let nvim_language_dictionary = NvimLanguageDictionary::new(true);
         match lang_type {
-            ProgrammingLanguageType::Lua => assert_code_file(CodeFile::create(&file_path, &LUA).await),
-            ProgrammingLanguageType::Rust => assert_code_file(CodeFile::create(&file_path, &RUST).await),
+            ProgrammingLanguageType::Lua => assert_code_file(CodeFile::create(&file_path, &LUA, nvim_language_dictionary.to_readonly()).await),
+            ProgrammingLanguageType::Rust => assert_code_file(CodeFile::create(&file_path, &RUST, nvim_language_dictionary.to_readonly()).await),
         }
 
         fn assert_code_file<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>(
@@ -60,13 +62,14 @@ fn multiple_string_should_be(#[case] path: &str, #[case] lang_type: ProgrammingL
     let file_path = get_project_path(path);
 
     runtime.block_on(async {
+        let nvim_language_dictionary = NvimLanguageDictionary::new(true);
         match lang_type {
-            ProgrammingLanguageType::Lua => {
-                assert_code_file(CodeFile::create(&file_path, &LUA).await)
-            }
-            ProgrammingLanguageType::Rust => {
-                assert_code_file(CodeFile::create(&file_path, &RUST).await)
-            }
+            ProgrammingLanguageType::Lua => assert_code_file(
+                CodeFile::create(&file_path, &LUA, nvim_language_dictionary.to_readonly()).await,
+            ),
+            ProgrammingLanguageType::Rust => assert_code_file(
+                CodeFile::create(&file_path, &RUST, nvim_language_dictionary.to_readonly()).await,
+            ),
         }
 
         fn assert_code_file<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>(

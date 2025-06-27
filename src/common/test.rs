@@ -1,6 +1,6 @@
 use crate::nvim_lang::NvimLanguageFile;
 
-const PROJECT_PATH: &str = "/home/brent/Documents/projects";
+const PROJECT_PATH: &str = "/home/brent/Documents/pojects";
 
 const TEST_FILE_PATH: &str = "/nvim-lang-core/tests/file_test_cases";
 const TEST_COMMENT_PATH: &str = "/comments";

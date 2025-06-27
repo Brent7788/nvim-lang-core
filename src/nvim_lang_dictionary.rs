@@ -8,6 +8,11 @@ use home::home_dir;
 use log::{error, info};
 
 #[derive(Debug)]
+pub struct NvimLanguageReadonlyDictionary {
+    words: Vec<String>,
+}
+
+#[derive(Debug)]
 pub struct NvimLanguageDictionary {
     path: PathBuf,
     words: Vec<String>,
@@ -37,6 +42,12 @@ impl NvimLanguageDictionary {
         return Self {
             path: home_dir,
             words,
+        };
+    }
+
+    pub fn to_readonly(&self) -> NvimLanguageReadonlyDictionary {
+        return NvimLanguageReadonlyDictionary {
+            words: self.words.clone(),
         };
     }
 
@@ -145,6 +156,43 @@ impl NvimLanguageDictionary {
 
     fn words_to_string(&mut self) -> String {
         return self.words.join("\n");
+    }
+}
+
+impl NvimLanguageReadonlyDictionary {
+    pub fn exit_in_dictionary(&self, value: &str) -> bool {
+        for word in &self.words {
+            if value == word {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    pub fn replace(&self, value: &str) -> String {
+        let mut new_value = String::with_capacity(value.len());
+        let value_split = value.split_whitespace();
+
+        'ignore: for val in value_split {
+            if val.is_empty() {
+                continue;
+            }
+
+            for word in &self.words {
+                if val == word {
+                    continue 'ignore;
+                }
+            }
+            new_value.push_str(val);
+            new_value.push(' ');
+        }
+
+        if new_value.is_empty() {
+            return value.to_owned();
+        }
+
+        return new_value;
     }
 }
 

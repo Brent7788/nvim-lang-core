@@ -12,6 +12,7 @@ use tokio::{runtime::Runtime, task::JoinHandle};
 use crate::{
     code::programming::ProgrammingStringSyntax,
     common::string::{DelimiterType, StringDelimiter, StringDelimiterSlice, StringSlice},
+    nvim_lang_dictionary::NvimLanguageReadonlyDictionary,
 };
 
 use super::programming::{CodeBlockLineSyntax, ProgrammingLanguage};
@@ -22,6 +23,7 @@ pub struct CodeFile<'pf, const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COU
     pub lang: &'static ProgrammingLanguage<OPERATOR_COUNT, RESERVED_KEYWORD_COUNT>,
     pub blocks: Vec<CodeBlock>,
     pub lines: Vec<Code>,
+    nvim_language_readonly_dictionary: Arc<NvimLanguageReadonlyDictionary>,
 }
 
 impl<'pf, const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
@@ -30,12 +32,14 @@ impl<'pf, const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
     pub async fn create(
         file_path: &'pf str,
         lang: &'static ProgrammingLanguage<OPERATOR_COUNT, RESERVED_KEYWORD_COUNT>,
+        nvim_language_readonly_dictionary: NvimLanguageReadonlyDictionary,
     ) -> Self {
         return CodeFile {
             file_path,
             blocks: Vec::new(),
             lines: Vec::new(),
             lang,
+            nvim_language_readonly_dictionary: Arc::new(nvim_language_readonly_dictionary),
         }
         .generate()
         .await;
@@ -52,6 +56,7 @@ impl<'pf, const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
             }
         };
 
+        let nvim_language_readonly_dictionary = self.nvim_language_readonly_dictionary.clone();
         let file_buf_reader = BufReader::new(file);
         let mut hasher = DefaultHasher::new();
         let mut line_handles: Vec<JoinHandle<Vec<Code>>> = Vec::new();
@@ -101,6 +106,7 @@ impl<'pf, const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
                             line_number,
                             line,
                             self.lang,
+                            nvim_language_readonly_dictionary.clone(),
                         )));
                         code_block
                     }
@@ -250,6 +256,7 @@ impl Code {
         line_number: usize,
         mut line: String,
         lang: &'static ProgrammingLanguage<OPERATOR_COUNT, RESERVED_KEYWORD_COUNT>,
+        nvim_language_readonly_dictionary: Arc<NvimLanguageReadonlyDictionary>,
     ) -> Vec<Code> {
         let code_line = CodeLine::new(hash, line_number, line.clone());
 
@@ -279,7 +286,10 @@ impl Code {
         }
 
         line = lang.replase_all_operators_and_syntax_with_whitespace(line);
-        line = lang.replase_all_reserved_keywords_with_whitespace(line);
+        line = lang.replase_all_reserved_keywords_with_whitespace(
+            line,
+            &nvim_language_readonly_dictionary,
+        );
         line = line.trim().to_owned();
 
         if line.is_empty() {
