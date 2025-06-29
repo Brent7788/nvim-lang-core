@@ -270,7 +270,7 @@ impl Code {
                 break;
             }
 
-            let code_line_state = Code::new_comment_or_string(hash, code_line.clone(), line, lang);
+            let code_line_state = Code::new_in_line(hash, code_line.clone(), line, lang);
 
             match code_line_state {
                 CodeLineState::ContinueWithResult(new_line, code) => {
@@ -306,8 +306,7 @@ impl Code {
         return codes;
     }
 
-    // TODO: Find better name
-    fn new_comment_or_string<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>(
+    fn new_in_line<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>(
         hash: u64,
         code_line: CodeLine,
         mut line: String,

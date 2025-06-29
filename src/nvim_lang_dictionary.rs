@@ -192,7 +192,7 @@ impl NvimLanguageReadonlyDictionary {
             return value.to_owned();
         }
 
-        return new_value;
+        return new_value.trim_end().to_owned();
     }
 }
 
