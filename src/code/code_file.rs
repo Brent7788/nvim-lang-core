@@ -10,7 +10,7 @@ use log::{error, info, warn};
 use tokio::{runtime::Runtime, task::JoinHandle};
 
 use crate::{
-    code::programming::ProgrammingStringSyntax,
+    code::programming::{ProgrammingStringSyntax, LUA, RUST},
     common::string::{DelimiterType, StringDelimiter, StringDelimiterSlice, StringSlice},
     nvim_lang_dictionary::NvimLanguageReadonlyDictionary,
 };
@@ -18,35 +18,52 @@ use crate::{
 use super::programming::{CodeBlockLineSyntax, ProgrammingLanguage};
 
 #[derive(Debug)]
-pub struct CodeFile<'pf, const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize> {
-    pub file_path: &'pf str,
-    pub lang: &'static ProgrammingLanguage<OPERATOR_COUNT, RESERVED_KEYWORD_COUNT>,
+pub struct CodeFile {
+    pub file_path: String,
     pub blocks: Vec<CodeBlock>,
     pub lines: Vec<Code>,
     nvim_language_readonly_dictionary: Arc<NvimLanguageReadonlyDictionary>,
 }
 
-impl<'pf, const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
-    CodeFile<'pf, OPERATOR_COUNT, RESERVED_KEYWORD_COUNT>
-{
-    pub async fn create(
-        file_path: &'pf str,
-        lang: &'static ProgrammingLanguage<OPERATOR_COUNT, RESERVED_KEYWORD_COUNT>,
-        nvim_language_readonly_dictionary: NvimLanguageReadonlyDictionary,
-    ) -> Self {
-        return CodeFile {
-            file_path,
-            blocks: Vec::new(),
-            lines: Vec::new(),
-            lang,
-            nvim_language_readonly_dictionary: Arc::new(nvim_language_readonly_dictionary),
+impl CodeFile {
+    pub async fn new(
+        file_path: String,
+        nvim_language_readonly_dictionary: Arc<NvimLanguageReadonlyDictionary>,
+    ) -> Option<Self> {
+        if file_path.ends_with(&RUST.extension) {
+            return Some(
+                CodeFile {
+                    file_path,
+                    blocks: Vec::new(),
+                    lines: Vec::new(),
+                    nvim_language_readonly_dictionary: nvim_language_readonly_dictionary,
+                }
+                .generate(&RUST)
+                .await,
+            );
         }
-        .generate()
-        .await;
+
+        if file_path.ends_with(&LUA.extension) {
+            return Some(
+                CodeFile {
+                    file_path,
+                    blocks: Vec::new(),
+                    lines: Vec::new(),
+                    nvim_language_readonly_dictionary: nvim_language_readonly_dictionary,
+                }
+                .generate(&LUA)
+                .await,
+            );
+        }
+
+        return None;
     }
 
-    async fn generate(mut self) -> Self {
-        let file_result = File::open(self.file_path);
+    async fn generate<const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>(
+        mut self,
+        lang: &'static ProgrammingLanguage<OPERATOR_COUNT, RESERVED_KEYWORD_COUNT>,
+    ) -> Self {
+        let file_result = File::open(&self.file_path);
 
         let file = match file_result {
             Ok(file) => file,
@@ -80,7 +97,7 @@ impl<'pf, const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
                     continue;
                 }
 
-                code_block = match self.lang.is_start_of_code_block(&line) {
+                code_block = match lang.is_start_of_code_block(&line) {
                     super::programming::CodeBlockType::String(code_block_current_line_syntax) => {
                         Some(CodeBlock::new(
                             line_number,
@@ -105,7 +122,7 @@ impl<'pf, const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
                             hash,
                             line_number,
                             line,
-                            self.lang,
+                            lang,
                             nvim_language_readonly_dictionary.clone(),
                         )));
                         code_block
@@ -117,7 +134,7 @@ impl<'pf, const OPERATOR_COUNT: usize, const RESERVED_KEYWORD_COUNT: usize>
 
             if let Some(cb) = code_block {
                 let (current_code_block, push_code_block) =
-                    cb.push(line_number, line, &mut hasher, self.lang);
+                    cb.push(line_number, line, &mut hasher, lang);
                 code_block = current_code_block;
 
                 if let Some(push_code_block) = push_code_block {

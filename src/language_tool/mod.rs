@@ -10,18 +10,13 @@ pub trait LanguageToolTrait {
     fn get_matches(&self) -> Option<&Vec<Match>>;
 }
 
-impl LanguageToolTrait for Option<CheckResponse> {
+impl LanguageToolTrait for CheckResponse {
     fn get_matches(&self) -> Option<&Vec<Match>> {
-        return match self {
-            Some(ref lang_tool) => {
-                if lang_tool.matches.is_empty() {
-                    return None;
-                }
+        if self.matches.is_empty() {
+            return None;
+        }
 
-                return Some(&lang_tool.matches);
-            }
-            None => None,
-        };
+        return Some(&self.matches);
     }
 }
 

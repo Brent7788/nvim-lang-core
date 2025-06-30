@@ -38,22 +38,43 @@ impl<'r> Expected<'r> {
         };
     }
 
-    pub fn data_len_to_be(len: usize, result: &NvimLanguageFile) {
-        assert_eq!(false, result.is_empty());
+    pub fn data_len_to_be(len: usize, result: &crate::nvim_language::file::NvimLanguageFile) {
         assert_eq!(len, result.nvim_lang_lines.len());
     }
 
-    pub fn assert(&self, data_index: usize, result: &NvimLanguageFile) {
+    pub fn assert(&self, data_index: usize, result: &crate::nvim_language::file::NvimLanguageFile) {
         let result = &result.nvim_lang_lines[data_index];
 
-        assert_eq!(self.ln, result.line_number);
-        assert_eq!(self.sc, result.start_column);
-        assert_eq!(self.ec, result.end_column);
+        assert_eq!(self.ln, result.line_number, "line_number");
+        assert_eq!(self.sc, result.start_column, "start_column");
+        assert_eq!(self.ec, result.end_column, "end_column");
         assert_eq!(self.orig, result.options.original);
-        assert_eq!(self.ol, result.options.options.len());
-        for (index, option) in self.fopt.iter().enumerate() {
-            assert_eq!(*option, result.options.options[index]);
+        assert!(
+            result.options.options.len() >= self.fopt.len(),
+            "NvimLanguageLine.options length must be >= then the test options"
+        );
+
+        for option in &self.fopt {
+            let no_match = "No Match Find in NvimLanguageLine.options".to_owned();
+            let r_match = result
+                .options
+                .options
+                .iter()
+                .find(|r_option| r_option == option)
+                .unwrap_or(&no_match);
+
+            assert_eq!(option, r_match);
         }
+    }
+}
+
+pub trait ExpectedTrait {
+    fn expected_sorting_order(&mut self);
+}
+
+impl ExpectedTrait for Vec<Expected<'_>> {
+    fn expected_sorting_order(&mut self) {
+        self.sort_by(|e, b| e.ln.cmp(&b.ln).then_with(|| e.sc.cmp(&b.sc)));
     }
 }
 

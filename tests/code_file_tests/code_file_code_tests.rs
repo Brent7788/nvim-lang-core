@@ -1,6 +1,7 @@
 use log::info;
 use rstest::rstest;
 use std::env;
+use std::sync::Arc;
 use tokio::runtime::{self, Runtime};
 
 use nvim_lang_core::{
@@ -37,8 +38,10 @@ fn rust_code_should_be(#[case] path: &str, #[case] values: Vec<(usize, usize, &s
 
     runtime.block_on(async {
         let nvim_language_dictionary = NvimLanguageDictionary::new(true);
-        let code_file =
-            CodeFile::create(&file_path, &RUST, nvim_language_dictionary.to_readonly()).await;
+        let code_file = CodeFile::new(file_path, Arc::new(nvim_language_dictionary.to_readonly()))
+            .await
+            .unwrap();
+
         // info!("{:#?}", code_file.lines);
         for (index, data) in values.iter().enumerate() {
             assert_eq!(data.0, code_file.lines.len());
@@ -78,8 +81,10 @@ fn lua_code_should_be(#[case] path: &str, #[case] values: Vec<(usize, usize, &st
 
     runtime.block_on(async {
         let nvim_language_dictionary = NvimLanguageDictionary::new(true);
-        let code_file =
-            CodeFile::create(&file_path, &LUA, nvim_language_dictionary.to_readonly()).await;
+        let code_file = CodeFile::new(file_path, Arc::new(nvim_language_dictionary.to_readonly()))
+            .await
+            .unwrap();
+
         for (index, data) in values.iter().enumerate() {
             assert_eq!(data.0, code_file.lines.len());
             let line = &code_file.lines[index];

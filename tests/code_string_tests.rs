@@ -4,6 +4,9 @@ use nvim_lang_core::{
     common::test::{get_project_path, Expected},
     nvim_lang_core::NvimLangCore,
 };
+use nvim_lang_core::{
+    nvim_lang_dictionary::NvimLanguageDictionary, nvim_language::core::NvimLanguageCore,
+};
 use rstest::rstest;
 
 #[rstest]
@@ -14,9 +17,10 @@ fn simple_string_should_be(#[case] path: &str) {
 
     let file_path = get_project_path(path);
 
-    let core = NvimLangCore::new(None, None);
+    let nvim_language_dictionary = NvimLanguageDictionary::new(true);
+    let core = NvimLanguageCore::new(None, None);
 
-    let result = core.process_file(file_path, None);
+    let result = core.process_file(file_path, nvim_language_dictionary.to_readonly());
 
     Expected::data_len_to_be(4, &result);
     Expected::new(2, 17, 24, 5, "brances", vec!["branches"]).assert(0, &result);
@@ -33,9 +37,10 @@ fn multiple_strings_should_be(#[case] path: &str) {
 
     let file_path = get_project_path(path);
 
-    let core = NvimLangCore::new(None, None);
+    let nvim_language_dictionary = NvimLanguageDictionary::new(true);
+    let core = NvimLanguageCore::new(None, None);
 
-    let result = core.process_file(file_path, None);
+    let result = core.process_file(file_path, nvim_language_dictionary.to_readonly());
 
     Expected::data_len_to_be(5, &result);
     Expected::new(2, 8, 14, 2, "prduct", vec!["product", "pr duct"]).assert(0, &result);

@@ -18,6 +18,7 @@ pub mod modules;
 pub mod nvim_lang;
 pub mod nvim_lang_core;
 pub mod nvim_lang_dictionary;
+pub mod nvim_language;
 pub mod programming_lang;
 
 #[nvim_oxi::module]

@@ -171,6 +171,57 @@ impl LangToolClient {
             }
         }
     }
+
+    pub async fn get_lang_tool_v2(&self, text: &str) -> Option<CheckResponse> {
+        if text.is_empty() {
+            return None;
+        }
+
+        let mut request = CheckRequest::default().with_text(text.to_owned());
+        request = request.with_language(self.language.to_string());
+
+        let client = self.client.load();
+        let response = client.check(&request).await;
+
+        match response {
+            Ok(res) => {
+                return Some(res);
+            }
+            Err(e) => {
+                error!("Unable to connect to your LanguageTool {:#?}", e);
+                return None;
+            }
+        }
+    }
+
+    pub async fn get_multi_lang_tool_v2(&self, texts: Vec<&str>) -> Option<CheckResponse> {
+        if texts.is_empty() {
+            return None;
+        }
+
+        let mut requests: Vec<CheckRequest> = Vec::with_capacity(texts.len());
+
+        for text in texts {
+            let mut request = CheckRequest::default().with_text(text.to_owned());
+            request = request.with_language(self.language.to_string());
+
+            requests.push(request);
+        }
+
+        let client = self.client.load();
+
+        let response = client.check_multiple_and_join(requests).await;
+
+        match response {
+            Ok(res) => {
+                return Some(res);
+            }
+            Err(e) => {
+                error!("Unable to connect to your LanguageTool {:#?}", e);
+                return None;
+            }
+        }
+    }
 }
 
 fn get_language_tool_client(tokio_runtime: &Option<Runtime>) -> ServerClient {
