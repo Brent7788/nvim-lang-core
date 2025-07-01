@@ -48,7 +48,7 @@ impl<'r> Expected<'r> {
         assert_eq!(self.ln, result.line_number, "line_number");
         assert_eq!(self.sc, result.start_column, "start_column");
         assert_eq!(self.ec, result.end_column, "end_column");
-        assert_eq!(self.orig, result.options.original);
+        assert_eq!(self.orig, result.options.original, "original");
         assert!(
             result.options.options.len() >= self.fopt.len(),
             "NvimLanguageLine.options length must be >= then the test options"

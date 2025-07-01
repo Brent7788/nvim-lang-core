@@ -126,13 +126,14 @@ fn ccomment_block_should_be(#[case] path: &str, #[case] mut expected: Vec<Expect
     Expected::new(5, 24, 31, 1, "error's", vec!["errors"]),
     Expected::new(6, 41, 61, 1, "in a reliable manner", vec!["reliably"]),
     Expected::new(7, 4, 7, 1, "did", vec!["Did"]),
+    Expected::new(7, 30, 33, 1, "sea", vec!["see"]),
     Expected::new(7, 46, 61, 1, "double clicking", vec!["double-clicking"]),
     Expected::new(7, 70, 73, 1, "Its", vec!["It's"]),
     Expected::new(7, 74, 75, 1, "a", vec!["an"]),
     Expected::new(8, 33, 37, 1, "youd", vec!["you'd"]),
     Expected::new(8, 68, 78, 1, "over sea's", vec!["overseas"]),
     Expected::new(9, 18, 37, 1, "PM in the afternoon", vec!["PM"]),
-    Expected::new(9, 41, 60, 0, "Monday, 27 May 2007", vec![])
+    Expected::new(9, 41, 51, 0, "Monday, 27", vec!["Sunday, 27", "Monday, 28"])
 ])]
 #[case("/lua/comments/full_comment.lua", vec![
     Expected::new(3, 34, 42, 1, "too have", vec!["to have"]),
@@ -143,17 +144,19 @@ fn ccomment_block_should_be(#[case] path: &str, #[case] mut expected: Vec<Expect
     Expected::new(5, 24, 31, 1, "error's", vec!["errors"]),
     Expected::new(6, 41, 61, 1, "in a reliable manner", vec!["reliably"]),
     Expected::new(7, 4, 7, 1, "did", vec!["Did"]),
+    Expected::new(7, 30, 33, 1, "sea", vec!["see"]),
     Expected::new(7, 46, 61, 1, "double clicking", vec!["double-clicking"]),
     Expected::new(7, 70, 73, 1, "Its", vec!["It's"]),
     Expected::new(7, 74, 75, 1, "a", vec!["an"]),
     Expected::new(8, 33, 37, 1, "youd", vec!["you'd"]),
     Expected::new(8, 68, 78, 1, "over sea's", vec!["overseas"]),
     Expected::new(9, 18, 37, 1, "PM in the afternoon", vec!["PM"]),
-    Expected::new(9, 41, 60, 0, "Monday, 27 May 2007", vec![])
+    Expected::new(9, 41, 51, 0, "Monday, 27", vec!["Sunday, 27", "Monday, 28"])
 ])]
 fn full_comment_should_be(#[case] path: &str, #[case] mut expected: Vec<Expected>) {
     env::set_var("RUST_BACKTRACE", "1");
 
+    // Logger::console_init();
     let file_path = get_project_path(path);
 
     let nvim_language_dictionary = NvimLanguageDictionary::new(true);
@@ -164,8 +167,9 @@ fn full_comment_should_be(#[case] path: &str, #[case] mut expected: Vec<Expected
     let mut result = core.process_file(file_path, nvim_language_dictionary.to_readonly());
     expected.expected_sorting_order();
     result.expected_sorting_order();
-
-    Expected::data_len_to_be(15, &result);
+    // debug!("{:#?}", result);
+    // log::logger().flush();
+    Expected::data_len_to_be(16, &result);
     for (index, exp) in expected.iter().enumerate() {
         exp.assert(index, &result)
     }
