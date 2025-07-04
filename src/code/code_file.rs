@@ -162,7 +162,7 @@ pub struct CodeBlock {
     pub block: String,
     pub lines: Vec<CodeLine>,
     pub block_type: BlockType,
-    code_block_current_line_syntax: CodeBlockLineSyntax,
+    pub code_block_current_line_syntax: CodeBlockLineSyntax,
 }
 
 impl CodeBlock {

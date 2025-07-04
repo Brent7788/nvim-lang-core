@@ -140,6 +140,14 @@ impl PartialEq<DelimiterType> for DelimiterType {
 }
 
 impl DelimiterType {
+    pub fn len(&self) -> usize {
+        return match self {
+            DelimiterType::DelimiterStr(s) => s.len(),
+            DelimiterType::DelimiterChar(c) => c.len_utf16(),
+            DelimiterType::None => 0,
+        };
+    }
+
     pub fn indexof(&self, value: &str) -> Option<usize> {
         return match self {
             DelimiterType::DelimiterStr(s) => value.find(s),
