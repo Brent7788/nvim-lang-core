@@ -1,15 +1,7 @@
 #[cfg(test)]
 pub mod language_dictionary_tests {
-    use nvim_lang_core::{
-        code::{
-            code_file::CodeFile,
-            programming::{ProgrammingLanguage, RUST},
-        },
-        common::logger::Logger,
-        nvim_lang_dictionary::NvimLanguageDictionary,
-        programming_lang::ProgrammingFile,
-    };
-    use std::{env, time::Duration};
+    use nvim_lang_core::nvim_lang_dictionary::NvimLanguageDictionary;
+    use std::env;
 
     #[test]
     fn add_remove_should_be() {

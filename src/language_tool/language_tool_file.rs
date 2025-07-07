@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use languagetool_rust::CheckResponse;
-use log::{error, info};
+use log::{debug, error, info};
 use tokio::{spawn, task::JoinHandle};
 
 use crate::{
@@ -95,6 +95,8 @@ impl LanguageToolLines {
                 lang_tool_response,
             });
         }
+
+        // debug!("{:#?}", lines);
 
         return lines;
     }

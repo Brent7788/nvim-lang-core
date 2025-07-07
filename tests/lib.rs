@@ -35,6 +35,7 @@ fn simple_code_should_be(#[case] path: &str, #[case] expected: Vec<Expected>) {
 
     let result = core.process_file(file_path, nvim_language_dictionary.to_readonly());
 
+    // debug!("{:#?}", result);
     Expected::data_len_to_be(1, &result);
     for (index, exp) in expected.iter().enumerate() {
         exp.assert(index, &result)
@@ -110,7 +111,6 @@ fn ccomment_block_should_be(#[case] path: &str, #[case] mut expected: Vec<Expect
     // debug!("{:#?}", result);
     // log::logger().flush();
     Expected::data_len_to_be(6, &result);
-    // Expected::data_len_to_be(8, &result);
     for (index, exp) in expected.iter().enumerate() {
         exp.assert(index, &result)
     }

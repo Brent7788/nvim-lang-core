@@ -28,11 +28,11 @@ fn simple_code_should_be(#[case] path: &str, #[case] mut expected: Vec<Expected>
     let core = NvimLanguageCore::new(None, None);
 
     let mut result = core.process_file(file_path, nvim_language_dictionary.to_readonly());
-    // info!("{:#?}", result);
 
     expected.expected_sorting_order();
     result.expected_sorting_order();
 
+    // info!("{:#?}", result);
     Expected::data_len_to_be(2, &result);
     for (index, exp) in expected.iter().enumerate() {
         exp.assert(index, &result)
@@ -42,7 +42,7 @@ fn simple_code_should_be(#[case] path: &str, #[case] mut expected: Vec<Expected>
 }
 
 #[rstest]
-#[case("/rust/codes/multiple_code.rs", 11,
+#[case("/rust/codes/multiple_code.rs", 12,
     vec![
     Expected::new(2, 15, 20, 3, "Foldr", vec!["Fold", "Folder", "Folds"]),
     Expected::new(6, 9, 14, 3, "Foldr", vec!["Fold", "Folder", "Folds"]),
@@ -51,7 +51,7 @@ fn simple_code_should_be(#[case] path: &str, #[case] mut expected: Vec<Expected>
     Expected::new(7, 11, 18, 2, "generte", vec!["generate"]),
     Expected::new(3, 4, 9, 3, "foldr", vec!["fold", "folder", "folds"]),
     Expected::new(7, 19, 24, 3, "foldr", vec!["fold", "folder", "folds"]),
-    // Expected::new(12, 27, 32, 3, "foldr", vec!["fold", "folder", "folds"]),
+    Expected::new(12, 27, 32, 3, "foldr", vec!["fold", "folder", "folds"]),
     Expected::new(7, 25, 31, 1, "systim", vec!["system"]),
     Expected::new(12, 39, 45, 1, "systim", vec!["system"]),
     Expected::new(

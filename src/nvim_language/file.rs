@@ -35,7 +35,7 @@ impl NvimLanguageFile {
             for nvim_match in matches {
                 let language_tool_line_type = language_tool_line_type.clone();
                 let language_dictionary = language_dictionary.clone();
-                nvim_language_line_handles.push(spawn(NvimLanguageLine::new_lines(
+                nvim_language_line_handles.push(spawn(NvimLanguageLine::new(
                     nvim_match,
                     language_tool_line_type.clone(),
                     language_dictionary,
@@ -46,10 +46,12 @@ impl NvimLanguageFile {
         for handle in nvim_language_line_handles {
             match handle.await {
                 Ok(nvim_lang_lines) => match nvim_lang_lines {
-                    Some(nvim_lang_lines) => nvim_language_lines.extend(nvim_lang_lines),
+                    Some(nvim_lang_lines) => {
+                        nvim_language_lines.insert(nvim_lang_lines);
+                    }
                     None => {}
                 },
-                Err(e) => error!("NvimLanguageFile::new error: {:?}", e),
+                Err(e) => error!("NvimLanguageFile::new error: {:#?}", e),
             }
         }
 

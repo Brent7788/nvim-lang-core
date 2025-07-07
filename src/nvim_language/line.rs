@@ -1,14 +1,11 @@
-use std::{
-    hash::{DefaultHasher, Hash},
-    sync::Arc,
-};
+use std::{hash::Hash, sync::Arc};
 
 use languagetool_rust::check::{Category, Match};
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    code::code_file::CodeLine,
-    common::{LOWER_CASE_ALPHABET, UPPER_CASE_ALPHABET},
+    code::code_file::{CodeBlock, CodeLine, CodeType},
     language_tool::{language_tool_file::LanguageToolLineType, LanguageToolContextTrait},
     nvim_lang_dictionary::NvimLanguageReadonlyDictionary,
 };
@@ -78,11 +75,11 @@ impl NvimLangLineType {
 }
 
 impl NvimLanguageLine {
-    pub async fn new_lines(
+    pub async fn new(
         lang_match: Match,
         language_tool_line_type: Arc<LanguageToolLineType>,
         language_dictionary: Arc<NvimLanguageReadonlyDictionary>,
-    ) -> Option<Vec<NvimLanguageLine>> {
+    ) -> Option<NvimLanguageLine> {
         let context = &lang_match.context;
         let chunk = context.get_incorrect_chunk();
 
@@ -94,62 +91,117 @@ impl NvimLanguageLine {
             return None;
         }
 
-        let mut nvim_language_lines = Vec::new();
-
         match *language_tool_line_type {
             LanguageToolLineType::Block(ref code_block) => {
-                for code_line in &code_block.lines {
-                    match NvimLanguageLine::code_line_to_nvim_lang_lines(
-                        code_line,
-                        chunk,
-                        context.length,
-                        &lang_match,
-                    ) {
-                        Some(nvim_lang_lines) => nvim_language_lines.extend(nvim_lang_lines),
-                        None => {}
-                    };
-                }
+                return NvimLanguageLine::code_block_to_nvim_lang_line(
+                    code_block,
+                    chunk,
+                    &lang_match,
+                );
             }
-            LanguageToolLineType::Code(ref codes) => {
-                for code in codes {
-                    match NvimLanguageLine::code_line_to_nvim_lang_lines(
-                        &code.line,
-                        chunk,
-                        context.length,
-                        &lang_match,
-                    ) {
-                        Some(nvim_lang_lines) => nvim_language_lines.extend(nvim_lang_lines),
-                        None => {}
-                    };
+            LanguageToolLineType::Code(ref code) => {
+                // INFO: For code type values ignore grammer and accept only spelling mustakes.
+                if let CodeType::Code = code.tp {
+                    let nvim_lang_line_type = NvimLangLineType::get_type(&lang_match.rule.category);
+
+                    if !matches!(nvim_lang_line_type, NvimLangLineType::Typos) {
+                        return None;
+                    }
                 }
+
+                return NvimLanguageLine::code_line_to_nvim_lang_line(
+                    &code.line,
+                    chunk,
+                    &lang_match,
+                    lang_match.offset,
+                );
             }
         }
 
-        if nvim_language_lines.is_empty() {
-            return None;
-        }
-
-        return Some(nvim_language_lines);
+        return None;
     }
 
-    fn code_line_to_nvim_lang_lines(
+    fn code_block_to_nvim_lang_line(
+        code_block: &CodeBlock,
+        chunk: &str,
+        lang_match: &Match,
+    ) -> Option<NvimLanguageLine> {
+        let nvim_lang_line_type = NvimLangLineType::get_type(&lang_match.rule.category);
+
+        let mut absolute_len = 0;
+        let mut flage = false;
+
+        for code_line in &code_block.lines {
+            if absolute_len > lang_match.offset {
+                break;
+            }
+
+            let start_column = lang_match.offset - absolute_len;
+
+            // INFO: Increste the absolute length and add one that is the line breack
+            if flage && absolute_len == 0 {
+                absolute_len = code_line.original_line.trim_start().len() + 1;
+            } else if flage {
+                absolute_len = absolute_len + code_line.original_line.len() + 1;
+            }
+
+            // INFO: Subtract starting delimiter from the absolute length.
+            if !flage && absolute_len == 0 {
+                absolute_len = code_line.original_line.trim().len()
+                    - code_block
+                        .code_block_current_line_syntax
+                        .start_delimiter
+                        .len();
+                flage = true;
+            }
+
+            // INFO: Ignore all zero start column typography on code blocks
+            if start_column == 0 && matches!(nvim_lang_line_type, NvimLangLineType::Typography) {
+                return None;
+            }
+
+            match NvimLanguageLine::code_line_to_nvim_lang_line(
+                code_line,
+                chunk,
+                lang_match,
+                start_column,
+            ) {
+                Some(l) => return Some(l),
+                None => continue,
+            }
+        }
+
+        return None;
+    }
+
+    fn code_line_to_nvim_lang_line(
         code_line: &CodeLine,
         chunk: &str,
-        context_len: usize,
         lang_match: &Match,
-    ) -> Option<Vec<NvimLanguageLine>> {
-        let mut nvim_lang_lines = Vec::new();
-        let start_columns = get_target_offsets(&code_line.original_line, chunk);
-
-        if start_columns.is_empty() {
+        start_column: usize,
+    ) -> Option<NvimLanguageLine> {
+        if start_column > code_line.original_line.len() {
             return None;
         }
 
-        for start_column in start_columns {
-            nvim_lang_lines.push(NvimLanguageLine {
+        let end_chunk_index = start_column + lang_match.length;
+
+        if end_chunk_index > code_line.original_line.len() {
+            return None;
+        }
+
+        for start_column in start_column..code_line.original_line.len() {
+            let chunk_check =
+                &code_line.original_line[start_column..(start_column + lang_match.length)];
+
+            if chunk_check != chunk {
+                continue;
+            }
+
+            return Some(NvimLanguageLine {
                 line_number: code_line.line_number,
                 start_column,
-                end_column: start_column + context_len,
+                end_column: start_column + lang_match.length,
                 options: NvimOptions {
                     original: chunk.to_owned(),
                     options: lang_match
@@ -163,84 +215,28 @@ impl NvimLanguageLine {
             });
         }
 
-        return Some(nvim_lang_lines);
+        return None;
     }
 }
 
-// BUG: Does not work on this:
-//      `local TEXT = "a shop with brances in many places, especialy one selling a specific type of prduct.";`
-//      The `a` in local is detected and not in the string.
-fn get_target_offsets(input_string: &str, target: &str) -> Vec<usize> {
-    let input_collection: Vec<&str> = input_string.split(target).collect();
+pub fn get_target_offsets2(input_string: &str, target: &str) -> Vec<usize> {
+    let input_split = input_string.split_whitespace();
+
     let mut offsets: Vec<usize> = Vec::new();
-
-    if input_collection.is_empty() || input_collection.len() == 1 {
-        return offsets;
-    }
-
     let mut current_offset: usize = 0;
 
-    for (index, input) in input_collection.iter().enumerate() {
-        current_offset += (*input).len();
-
-        if index > 0 {
-            current_offset += target.len();
-        }
-
-        if is_not_valid_offset(index, &input_collection) {
+    for input in input_split {
+        if input.is_empty() || input.len() < target.len() {
+            current_offset += input.len() + 1;
             continue;
         }
 
-        offsets.push(current_offset);
+        if input == target {
+            offsets.push(current_offset);
+        }
+
+        current_offset += input.len() + 1;
     }
 
     return offsets;
-}
-
-fn is_not_valid_offset(input_index: usize, input: &Vec<&str>) -> bool {
-    //INFO: The last input offset is always invalid
-    if input_index == input.len() - 1 {
-        return true;
-    }
-
-    let before_index = input_index as isize - 1;
-    let after_index = input_index + 1;
-
-    if before_index == -1 {
-        return is_char_not_valid(input[after_index]);
-    }
-
-    if after_index == input.len() {
-        return is_char_not_valid(input[before_index as usize]);
-    }
-
-    return is_char_not_valid(input[before_index as usize])
-        || is_char_not_valid(input[after_index]);
-}
-
-fn is_char_not_valid(sen: &str) -> bool {
-    if sen.is_empty() {
-        return false;
-    }
-
-    let first_char = &(sen.as_bytes()[0] as char);
-
-    for alpb in LOWER_CASE_ALPHABET {
-        if alpb == first_char {
-            return true;
-        }
-    }
-
-    for alpb in UPPER_CASE_ALPHABET {
-        if alpb == first_char {
-            return true;
-        }
-    }
-
-    // HACK:
-    // if first_char == &'\'' {
-    //     return true;
-    // }
-
-    return false;
 }
