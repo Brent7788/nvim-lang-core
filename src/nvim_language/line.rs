@@ -191,8 +191,13 @@ impl NvimLanguageLine {
         }
 
         for start_column in start_column..code_line.original_line.len() {
-            let chunk_check =
-                &code_line.original_line[start_column..(start_column + lang_match.length)];
+            let end_chunk_index = start_column + lang_match.length;
+
+            if end_chunk_index > code_line.original_line.len() {
+                return None;
+            }
+
+            let chunk_check = &code_line.original_line[start_column..end_chunk_index];
 
             if chunk_check != chunk {
                 continue;
