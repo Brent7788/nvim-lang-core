@@ -160,6 +160,9 @@ impl NvimLanguageDictionary {
 }
 
 impl NvimLanguageReadonlyDictionary {
+    pub fn new() -> Self {
+        return Self { words: Vec::new() };
+    }
     pub fn exit_in_dictionary(&self, value: &str) -> bool {
         for word in &self.words {
             if value == word {
