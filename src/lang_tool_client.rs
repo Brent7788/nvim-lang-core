@@ -188,7 +188,10 @@ impl LangToolClient {
                 return Some(res);
             }
             Err(e) => {
-                error!("Unable to connect to your LanguageTool {:#?}", e);
+                error!(
+                    "Unable to connect to your LanguageTool, Text: {}, Error: {:#?}",
+                    text, e
+                );
                 return None;
             }
         }
