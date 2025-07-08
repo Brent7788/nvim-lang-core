@@ -78,23 +78,6 @@ impl NvimLanguageCore {
             return NvimLanguageFile::new(language_tool_file, nvim_language_readonly_dictionary)
                 .await;
         });
-
-        // let code_file =
-        //     match CodeFile::new(file_path.clone(), nvim_language_readonly_dictionary.clone()).await
-        //     {
-        //         Some(code_file) => code_file,
-        //         None => {
-        //             warn!(
-        //                 "nvim-lang-core does not support this file type: {}",
-        //                 file_path
-        //             );
-        //             return NvimLanguageFile::empty();
-        //         }
-        //     };
-        //
-        // let language_tool_file = LanguageToolFile::new(code_file, languagetool_client).await;
-        //
-        // return NvimLanguageFile::new(language_tool_file, nvim_language_readonly_dictionary).await;
     }
 
     fn get_programming_file(&self, file_path: &String) -> Option<ProgrammingLanguageType> {
