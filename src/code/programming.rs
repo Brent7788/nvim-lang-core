@@ -123,7 +123,7 @@ pub const RUST: ProgrammingLanguage<29, 50> = ProgrammingLanguage {
         },
         ProgrammingStringSyntax {
             string_delimiter: DelimiterType::DelimiterChar('\''),
-            string_ignore_delimiter: [DelimiterType::None, DelimiterType::None],
+            string_ignore_delimiter: [DelimiterType::DelimiterStr("\\\'"), DelimiterType::None],
         },
     ],
     reserved_keywords: [
