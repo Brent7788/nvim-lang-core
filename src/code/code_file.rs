@@ -279,11 +279,24 @@ impl Code {
 
         line = lang.post_replace_with_empty_space(line);
 
+        let mut line_chunk_limit_count = 0;
         let mut codes = Vec::<Code>::new();
+        // FIX: Need to find better way then infinit loop.
+        // This loop is trying to break up a single line into chunks.
         loop {
-            // WARN: This is just for safty
+            // HACK: No more then 20 line chunks
             if codes.len() > 20 {
-                error!("Code::generate posible infinit loop. Line: {}", line);
+                error!(
+                    "Code::generate posible infinit loop. Line: {}, {:#?}",
+                    line, code_line
+                );
+                break;
+            }
+
+            // HACK: Hard limit on per code line chunk.
+            // This can break a potenchol ininit loop.
+            if line_chunk_limit_count > 2000 {
+                error!("Code::generate posible infinit loop. Hit code line chunk limit. Line: {}, {:#?}", line, code_line);
                 break;
             }
 
@@ -300,6 +313,8 @@ impl Code {
                     break;
                 }
             }
+
+            line_chunk_limit_count += 1;
         }
 
         line = lang.replase_all_operators_and_syntax_with_whitespace(line);
