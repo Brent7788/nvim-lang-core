@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use languagetool_rust::CheckResponse;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use tokio::{spawn, task::JoinHandle};
 
 use crate::{
@@ -123,7 +123,7 @@ impl LanguageToolLines {
                 let mut lang_tool_response = match client.get_lang_tool_v2(&code_line.value).await {
                     Some(res) => res,
                     None => {
-                        error!(
+                        warn!(
                             "Language Tool Client response is empty. Request Value: {:#?}",
                             code_line
                         );
