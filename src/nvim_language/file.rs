@@ -17,11 +17,13 @@ use crate::{
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NvimLanguageFile {
+    pub file_path: String,
     pub nvim_lang_lines: Vec<NvimLanguageLine>,
 }
 
 impl NvimLanguageFile {
     pub async fn new(
+        file_path: String,
         language_tool_file: LanguageToolFile,
         language_dictionary: Arc<NvimLanguageReadonlyDictionary>,
     ) -> Self {
@@ -56,6 +58,7 @@ impl NvimLanguageFile {
         }
 
         return NvimLanguageFile {
+            file_path,
             nvim_lang_lines: nvim_language_lines.into_iter().collect(),
         };
     }
@@ -63,6 +66,7 @@ impl NvimLanguageFile {
     pub fn empty() -> Self {
         return NvimLanguageFile {
             nvim_lang_lines: Vec::new(),
+            file_path: String::new(),
         };
     }
 }

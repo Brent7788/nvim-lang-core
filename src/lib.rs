@@ -5,8 +5,8 @@ use log::{error, info};
 use nvim_oxi::{Dictionary, Function, Object, Result};
 
 use crate::{
-    nvim_lang::NvimLanguageFile, nvim_lang_core::NvimLangCore,
-    nvim_lang_dictionary::NvimLanguageDictionary,
+    nvim_lang_dictionary::{NvimLanguageDictionary, NvimLanguageReadonlyDictionary},
+    nvim_language::{core::NvimLanguageCore, file::NvimLanguageFile},
 };
 
 pub mod code;
@@ -27,7 +27,7 @@ fn main() -> Result<Dictionary> {
 
     info!("Nvim Language Core Starting...");
 
-    let nvim_lang_core = Arc::new(NvimLangCore::new(None, None));
+    let nvim_lang_core = Arc::new(NvimLanguageCore::new(None, None));
     let nvim_lang_core_start_processing = nvim_lang_core.clone();
     let nvim_lang_file: Arc<Mutex<Option<NvimLanguageFile>>> = Arc::new(Mutex::new(None));
     let nvim_language_dictionary = Arc::new(Mutex::new(NvimLanguageDictionary::new(false)));
@@ -43,19 +43,19 @@ fn main() -> Result<Dictionary> {
         let nvim_lang_core = nvim_lang_core_start_processing.clone();
 
         nvim_lang_core_start_processing.spawn_blocking(move || {
-            let nvim_language_dictionary_guard = match nvim_language_dictionary.lock() {
-                Ok(guard) => Some(guard),
+            let nvim_language_readonly_dictionary = match nvim_language_dictionary.lock() {
+                Ok(guard) => guard.to_readonly(),
                 Err(e) => {
                     error!(
                         "Error locking the nvim language dictionary in remove word! {:#?}",
                         e
                     );
-                    None
+                    NvimLanguageReadonlyDictionary::new()
                 }
             };
 
             let nvim_lang_file_p =
-                nvim_lang_core.process_file(file_path, nvim_language_dictionary_guard);
+                nvim_lang_core.process_file(file_path.clone(), nvim_language_readonly_dictionary);
 
             let mut nvim_lang_file_gard = match nvim_lang_file.lock() {
                 Ok(l) => l,
@@ -68,7 +68,7 @@ fn main() -> Result<Dictionary> {
                 }
             };
 
-            info!("Done Processing file {}", nvim_lang_file_p.file_path);
+            info!("Done Processing file {}", file_path);
             match *nvim_lang_file_gard {
                 Some(_) => return,
                 None => {
@@ -183,12 +183,8 @@ fn main() -> Result<Dictionary> {
             return Result::Ok(false);
         }
 
-        let nvim_lang_core = nvim_lang_core_does_support_language.clone();
-
-        for programming_language in &nvim_lang_core.programming_languages {
-            if file_path.ends_with(programming_language.extension) {
-                return Result::Ok(true);
-            }
+        if NvimLanguageCore::support_file(&file_path) {
+            return Result::Ok(true);
         }
 
         return Result::Ok(false);

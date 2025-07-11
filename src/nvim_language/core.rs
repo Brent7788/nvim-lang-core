@@ -15,6 +15,7 @@ use crate::{
 
 #[derive(Debug)]
 pub struct NvimLanguageCore {
+    file_extension: &'static str,
     lang_tool_client: Arc<LangToolClient>,
 }
 
@@ -22,6 +23,7 @@ impl NvimLanguageCore {
     pub fn new(lang_tool_url: Option<String>, lang: Option<String>) -> NvimLanguageCore {
         return NvimLanguageCore {
             lang_tool_client: Arc::new(LangToolClient::new(lang_tool_url, lang)),
+            file_extension: "",
         };
     }
 
@@ -75,19 +77,23 @@ impl NvimLanguageCore {
 
             let language_tool_file = LanguageToolFile::new(code_file, languagetool_client).await;
 
-            return NvimLanguageFile::new(language_tool_file, nvim_language_readonly_dictionary)
-                .await;
+            return NvimLanguageFile::new(
+                file_path,
+                language_tool_file,
+                nvim_language_readonly_dictionary,
+            )
+            .await;
         });
     }
 
-    fn get_programming_file(&self, file_path: &String) -> Option<ProgrammingLanguageType> {
+    pub fn support_file(file_path: &String) -> bool {
         if file_path.ends_with(&RUST.extension) {
-            return Some(ProgrammingLanguageType::Rust);
+            return true;
         }
 
         if file_path.ends_with(&LUA.extension) {
-            return Some(ProgrammingLanguageType::Lua);
+            return true;
         }
-        return None;
+        return false;
     }
 }
