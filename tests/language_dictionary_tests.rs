@@ -1,7 +1,14 @@
 #[cfg(test)]
 pub mod language_dictionary_tests {
-    use nvim_lang_core::nvim_lang_dictionary::NvimLanguageDictionary;
-    use std::env;
+    use log::debug;
+    use nvim_lang_core::{
+        code::code_file::CodeFile,
+        common::{logger::Logger, test::get_bench_path},
+        nvim_lang_dictionary::NvimLanguageDictionary,
+        nvim_language::core::NvimLanguageCore,
+    };
+    use std::{env, sync::Arc};
+    use tokio::runtime::Runtime;
 
     #[test]
     fn add_remove_should_be() {

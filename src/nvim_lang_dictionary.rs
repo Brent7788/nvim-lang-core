@@ -23,7 +23,7 @@ impl NvimLanguageDictionary {
         let mut home_dir = match home_dir() {
             Some(home_dir) => home_dir,
             None => {
-                error!("Unable to find home dirictory");
+                error!("Unable to find home directory");
                 return Self {
                     path: PathBuf::new(),
                     words: Vec::new(),
@@ -177,14 +177,14 @@ impl NvimLanguageReadonlyDictionary {
         let mut new_value = String::with_capacity(value.len());
         let value_split = value.split_whitespace();
 
-        'ignore: for val in value_split {
+        'Ignore: for val in value_split {
             if val.is_empty() {
                 continue;
             }
 
             for word in &self.words {
                 if val == word {
-                    continue 'ignore;
+                    continue 'Ignore;
                 }
             }
             new_value.push_str(val);

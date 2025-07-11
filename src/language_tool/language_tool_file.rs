@@ -83,7 +83,7 @@ impl LanguageToolLines {
                 Some(res) => res,
                 None => {
                     error!(
-                        "Language Tool Client response is empty. Response Value: {:#?}",
+                        "LanguageTool Client response is empty. Response Value: {:#?}",
                         code_block
                     );
                     continue;
@@ -124,7 +124,7 @@ impl LanguageToolLines {
                     Some(res) => res,
                     None => {
                         warn!(
-                            "Language Tool Client response is empty. Request Value: {:#?}",
+                            "LanguageTool Client response is empty. Request Value: {:#?}",
                             code_line
                         );
                         return None;
@@ -138,7 +138,7 @@ impl LanguageToolLines {
                     Some(res) => res,
                     None => {
                         error!(
-                            "Language Tool Client response is empty. Request Value: {:#?}",
+                            "LanguageTool Client response is empty. Request Value: {:#?}",
                             code_line
                         );
                         return None;
@@ -166,86 +166,6 @@ impl LanguageToolLines {
 
         return lines;
     }
-
-    // TODO: Remove
-    //
-    // async fn code_lines(
-    //     code_lines: Vec<Code>,
-    //     client: Arc<LangToolClient>,
-    // ) -> Vec<LanguageToolLines> {
-    //     if code_lines.is_empty() {
-    //         return Vec::new();
-    //     }
-    //
-    //     let mut lines = Vec::with_capacity(code_lines.len());
-    //     const CHAR_REQUEST_LIMIT: usize = 1000;
-    //     let mut currnet_char_count = 0;
-    //     let code_line_count = code_lines.len();
-    //     let mut code_lines_set: Vec<Code> = Vec::with_capacity(code_line_count);
-    //
-    //     for code_line in code_lines {
-    //         currnet_char_count += code_line.value.len();
-    //         code_lines_set.push(code_line);
-    //
-    //         if currnet_char_count < CHAR_REQUEST_LIMIT {
-    //             continue;
-    //         }
-    //
-    //         let mut requests: Vec<&str> = Vec::with_capacity(code_lines_set.len());
-    //
-    //         for code_line_set in &mut code_lines_set {
-    //             if matches!(code_line_set.tp, CodeType::Code) {
-    //                 code_line_set.value = format!("Ignore {}", code_line_set.value);
-    //             }
-    //
-    //             requests.push(&code_line_set.value);
-    //         }
-    //
-    //         let lang_tool_response = match client.get_multi_lang_tool_v2(requests).await {
-    //             Some(res) => res,
-    //             None => {
-    //                 error!("Language Tool Client response is empty.");
-    //                 continue;
-    //             }
-    //         };
-    //         let len = code_line_count - code_lines_set.len();
-    //         lines.push(LanguageToolLines {
-    //             lines: LanguageToolLineType::Code(code_lines_set),
-    //             lang_tool_response,
-    //         });
-    //         code_lines_set = Vec::with_capacity(len);
-    //         currnet_char_count = 0;
-    //     }
-    //
-    //     if code_lines_set.is_empty() {
-    //         return lines;
-    //     }
-    //
-    //     let mut requests: Vec<&str> = Vec::with_capacity(code_lines_set.len());
-    //
-    //     for code_line_set in &mut code_lines_set {
-    //         if matches!(code_line_set.tp, CodeType::Code) {
-    //             code_line_set.value = format!("Ignore {}", code_line_set.value);
-    //         }
-    //         requests.push(&code_line_set.value);
-    //     }
-    //
-    //     // info!("Request {:#?}", requests);
-    //     let lang_tool_response = match client.get_multi_lang_tool_v2(requests).await {
-    //         Some(res) => res,
-    //         None => {
-    //             error!("Language Tool Client response is empty.");
-    //             return lines;
-    //         }
-    //     };
-    //
-    //     lines.push(LanguageToolLines {
-    //         lines: LanguageToolLineType::Code(code_lines_set),
-    //         lang_tool_response,
-    //     });
-    //
-    //     return lines;
-    // }
 }
 
 trait CheckResponseTrait: Sized {
@@ -258,8 +178,8 @@ trait CheckResponseTrait: Sized {
 }
 
 impl CheckResponseTrait for CheckResponse {
-    // INFO: So Language Tool API does not spell mustakce if there is repetedif word.
-    // By adding a comma it will ge ignored.
+    // INFO: So LanguageTool API does not spell mistake if there is repeated word.
+    // By adding a comma it will be ignored.
     async fn handle_repetition(
         self,
         code_line: &mut Code,
@@ -301,8 +221,8 @@ impl CheckResponseTrait for CheckResponse {
     }
 
     // INFO: So what is this. When Code is of type code then we will append 'Ignore '
-    // on the value of code. 'Ignore ' have a length of 7, the offset will be used later on the
-    // oraginal line.
+    // on the value of code. 'Ignore' have a length of 7, the offset will be used later on the
+    // original line.
     fn add_to_offset(mut self, code_line: &Code) -> Self {
         if !matches!(code_line.tp, CodeType::Code) {
             return self;

@@ -2,12 +2,11 @@ use std::{
     fs::File,
     hash::{DefaultHasher, Hash, Hasher},
     io::{BufRead, BufReader},
-    rc::Rc,
     sync::Arc,
 };
 
-use log::{error, info, warn};
-use tokio::{runtime::Runtime, task::JoinHandle};
+use log::{error, warn};
+use tokio::task::JoinHandle;
 
 use crate::{
     code::programming::{ProgrammingStringSyntax, LUA, RUST},
@@ -281,22 +280,22 @@ impl Code {
 
         let mut line_chunk_limit_count = 0;
         let mut codes = Vec::<Code>::new();
-        // FIX: Need to find better way then infinit loop.
+        // FIX: Need to find better way then infinite loop.
         // This loop is trying to break up a single line into chunks.
         loop {
-            // HACK: No more then 20 line chunks
+            // HACK: No more than 20 line chunks
             if codes.len() > 20 {
                 error!(
-                    "Code::generate posible infinit loop. Line: {}, {:#?}",
+                    "Code::generate possible infinite loop. Line: {}, {:#?}",
                     line, code_line
                 );
                 break;
             }
 
             // HACK: Hard limit on per code line chunk.
-            // This can break a potenchol ininit loop.
+            // This can break a potential infinite loop.
             if line_chunk_limit_count > 2000 {
-                error!("Code::generate posible infinit loop. Hit code line chunk limit. Line: {}, {:#?}", line, code_line);
+                error!("Code::generate possible infinite loop. Hit code line chunk limit. Line: {}, {:#?}", line, code_line);
                 break;
             }
 
@@ -481,7 +480,7 @@ impl Code {
             string_slice = line.delimiter_slice_between(start_delimiter, end_delimiter);
         }
 
-        // TODO: Split string by nameing convetion. Ignore strings with code in it.
+        // TODO: Split string by naming convention. Ignore strings with code in it.
         return match string_slice {
             Some(mut value) => {
                 let mut replace_value = match start_delimiter {
@@ -531,10 +530,10 @@ enum CodeLineState {
 
 #[derive(Debug, Clone)]
 pub struct CodeLine {
-    // TODO: This functonality does not exit yet.
-    // INFO: The hash will be used for caching. Will store the grammer result in a file with the
-    //       hash. When the line hash is the same as the hash in the file us the file grammer
-    //       rather then hitting the language API.
+    // TODO: This functionality does not exit yet.
+    // INFO: The hash will be used for caching. Will store the grammar result in a file with the
+    //       hash. When the line hash is the same as the hash in the file us the file grammar
+    //       rather than hitting the language API.
     pub hash: u64,
     pub line_number: usize,
     pub original_line: String,
